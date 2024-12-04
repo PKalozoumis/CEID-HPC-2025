@@ -3,7 +3,7 @@
 
 int rank, size;
 
-int MPI_Exscan_pt2pt(int* in, int* out, int rank)
+void MPI_Exscan_pt2pt(int* in, int* out, int rank)
 {
     int prev = 0;
 
@@ -18,6 +18,12 @@ int MPI_Exscan_pt2pt(int* in, int* out, int rank)
     if(rank!=size-1){
         MPI_Send(&next, 1, MPI_INT, rank+1, 0, MPI_COMM_WORLD);
     }
+}
+
+void MPI_Exscan_omp(){
+
+  
+
 }
 
 int main(int argc, char* argv[])

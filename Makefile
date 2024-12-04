@@ -5,8 +5,14 @@ CFLAGS ?=
 
 .PHONY: clean
 
-ask1: ask1.c
-	${CC} ${CFLAGS} ask1.c -o ask1
+all: ask1a ask1b
+
+ask1a: ask1a.c
+	${CC} ${CFLAGS} ask1a.c -o ask1a
+
+ask1b: ask1b.c
+	${CC} ${CFLAGS} ask1b.c -o ask1b
 
 clean:
-	rm ask1
+	rm ask1a
+	rm ask1b
