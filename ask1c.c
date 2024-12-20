@@ -7,14 +7,6 @@
 int rank, size;
 int prev = 0;
 
-typedef struct
-{
-  int process;
-  int thread;
-  float realData;
-  float readData;
-} error_t;
-
 void MPI_Exscan_omp(int *in, int *out)
 {
 
@@ -107,7 +99,7 @@ int main(int argc, char *argv[])
     writeSize[i] = arraySize;
 
   MPI_File file;
-  MPI_File_open(MPI_COMM_WORLD, "file.bin", MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &file);
+  MPI_File_open(MPI_COMM_WORLD, "file_erotima_c.bin", MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &file);
   MPI_File_set_size(file, 0);
 
   MPI_Offset base;
@@ -138,7 +130,6 @@ int main(int argc, char *argv[])
     }
 
     MPI_Exscan_omp(writeSize, &outdata);
-    // printf("outdata: %d\n", outdata);
 
     // Start writing to file
     //==============================================================
@@ -171,30 +162,6 @@ int main(int argc, char *argv[])
       }
     }
 
-    /*
-    for (int i = 0; i < N; i++)
-    {
-      for (int j = 0; j < N; j++)
-      {
-        for (int k = 0; k < N; k++)
-        {
-          if (buffer[i * (N * N) + j * N + k] != data[i][j][k])
-          {
-            errFlag = 1;
-            break;
-          }
-        }
-        if (errFlag)
-        {
-          break;
-        }
-      }
-      if (errFlag)
-      {
-        break;
-      }
-    }
-    */
   }
 
   
