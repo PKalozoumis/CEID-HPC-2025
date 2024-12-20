@@ -1,0 +1,16 @@
+
+ask1c:9657 terminated with signal 11 at PC=7f2461e609ad SP=7f245b489720.  Backtrace:
+/lib/x86_64-linux-gnu/libmpich.so.12(+0x20b9ad)[0x7f2461e609ad]
+/lib/x86_64-linux-gnu/libmpich.so.12(+0x2138e83)[0x7f2463d8de83]
+/lib/x86_64-linux-gnu/libmpich.so.12(+0x2139786)[0x7f2463d8e786]
+/lib/x86_64-linux-gnu/libmpich.so.12(+0x21c335)[0x7f2461e71335]
+/lib/x86_64-linux-gnu/libmpich.so.12(+0x17f24b)[0x7f2461dd424b]
+/lib/x86_64-linux-gnu/libmpich.so.12(+0x1ed7d3)[0x7f2461e427d3]
+/lib/x86_64-linux-gnu/libmpich.so.12(+0x1ed8a3)[0x7f2461e428a3]
+/lib/x86_64-linux-gnu/libmpich.so.12(+0x1eda5c)[0x7f2461e42a5c]
+/lib/x86_64-linux-gnu/libmpich.so.12(+0x1eedeb)[0x7f2461e43deb]
+/lib/x86_64-linux-gnu/libmpich.so.12(MPI_Barrier+0x13a)[0x7f2461ca227a]
+./ask1c(+0x19f1)[0x55d0f40f89f1]
+/lib/x86_64-linux-gnu/libgomp.so.1(+0x1dc0e)[0x7f2461c28c0e]
+/lib/x86_64-linux-gnu/libc.so.6(+0x94ac3)[0x7f2461a76ac3]
+/lib/x86_64-linux-gnu/libc.so.6(+0x126850)[0x7f2461b08850]

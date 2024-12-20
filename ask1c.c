@@ -17,7 +17,7 @@ void MPI_Exscan_omp(int *in, int *out)
     MPI_Recv(&prev, 1, MPI_INT, rank - 1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   }
 
-#pragma omp barrier
+  #pragma omp barrier
 
   *out = prev;
 
@@ -57,10 +57,13 @@ int main(int argc, char *argv[])
 
   for (int i = 0; i < 4; i++)
     writeSize[i] = N*N*N;
+
+  MPI_File file;
+  MPI_File_open(MPI_COMM_WORLD, "file.bin", MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &file);
   
 #pragma omp parallel firstprivate(outdata)
   {
-    int data[N][N][N];
+    float data[N][N][N];
     srand(time(NULL) + rank + omp_get_thread_num());
 
     // Initialize the matrix
@@ -70,17 +73,34 @@ int main(int argc, char *argv[])
       {
         for (int k = 0; k < N; k++)
         {
-          data[i][j][k] = rand() % 1000;
+          data[i][j][k] = (rand() % 1000) / (float)RAND_MAX;
         }
       }
     }
 
-    
-
     MPI_Exscan_omp(writeSize, &outdata);
     printf("outdata: %d\n", outdata);
+
+
+    //Start writing to file
+    //==============================================================
+    #pragma omp barrier
+
+    #pragma omp single
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    
+    MPI_Offset offset = outdata;
+    printf("offset %ld\n",offset);
+    //MPI_File_write_at(file, offset, &data, writeSize[omp_get_thread_num()], MPI_FLOAT, MPI_STATUS_IGNORE);
+
+    int write = rank*4 + omp_get_thread_num();
+    printf("write %d\n",write);
+    MPI_File_write_at(file, offset, &write, 1, MPI_INT, MPI_STATUS_IGNORE);
   }
 
+
+  MPI_File_close(&file);
   MPI_Finalize();
 
   return 0;
