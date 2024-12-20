@@ -1,5 +1,3 @@
-.SILENT:
-
 CC = mpicc
 CFLAGS ?=
 
@@ -16,6 +14,11 @@ ask1b: ask1b.c
 ask1c: ask1c.c
 	${CC} ${CFLAGS} -fopenmp ask1c.c -o ask1c
 
+ask1d: ask1d. c
+	${CC} ${CFLAGS} -fopenmp ask1d.c -o ask1d
+
 clean:
 	rm ask1a
 	rm ask1b
+	rm ask1c
+	rm ask1d
