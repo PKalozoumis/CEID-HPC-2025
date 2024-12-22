@@ -191,10 +191,10 @@ int main(int argc, char *argv[])
 	{
 		float *data = (float *)malloc(arraySize * sizeof(float));
 
-		srand(time(NULL) + rank + omp_get_thread_num());
-
 		// Initialize the matrix
 		//============================================================================================
+		srand(time(NULL) + rank + omp_get_thread_num());
+		
 		for (int i = 0; i < arraySize; i++)
 		{
 			data[i] = (rand() / (float)RAND_MAX) * 1000;

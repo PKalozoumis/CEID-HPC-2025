@@ -27,6 +27,12 @@ void MPI_Exscan_pt2pt(int *in, int *out)
 
 //============================================================================================
 
+//IDEA
+//Instead of passing the writeSize array as a parameter...
+//...it can be created INSIDE the exscan function
+//At the beginning of the function,each thread of the process will put its value in the correct position of the array
+//We will wait until the entire array is filled, and then we continue like normal
+
 void MPI_Exscan_omp(int *in, int *out)
 {
 	static int prev = 0; //The offset in the file for the entire process

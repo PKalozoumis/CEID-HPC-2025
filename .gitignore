@@ -7,4 +7,4 @@ ask1d zlib.c
 ask1d_zstd.c
 io*
 *btr
-.*.bin
+*.bin

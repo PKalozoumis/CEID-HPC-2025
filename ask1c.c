@@ -120,24 +120,35 @@ int main(int argc, char *argv[])
 	//================================================================
 	if (rank == 0)
 	{
-		MPI_File_write_at(file, base, &totalThreads, 1, MPI_BYTE, MPI_STATUS_IGNORE);
+		MPI_File_write_at(file, base, &size, 1, MPI_BYTE, MPI_STATUS_IGNORE);
+		MPI_File_write_at(file, base + 1, &numThreads, 1, MPI_BYTE, MPI_STATUS_IGNORE);
 	}
 
+	//Write counts
+	//================================================================
 	MPI_Barrier(MPI_COMM_WORLD);
 
-	MPI_Offset offset = sizeof(uint8_t) + numThreads * sizeof(int) * rank;
+	MPI_Offset offset = 2*sizeof(uint8_t) + numThreads * sizeof(int) * rank;
 	MPI_File_write_at(file, offset, &writeSize, numThreads, MPI_INT, MPI_STATUS_IGNORE);
-	base += 1 + totalThreads * sizeof(int);
+
+	base += 2 + totalThreads * sizeof(int);
 
 	//Parallel region
 	//============================================================================================
+	
+	float* processWriteData[numThreads];
+
 	#pragma omp parallel firstprivate(outdata)
 	{
-		float *data = (float *)malloc(arraySize * sizeof(float));
-		srand(time(NULL) + rank + omp_get_thread_num());
+		int threadNum = omp_get_thread_num();
+
+		processWriteData[threadNum] = (float *)malloc(arraySize * sizeof(float));
+		float* data = processWriteData[threadNum];
 
 		// Initialize the matrix
 		//============================================================================================
+		srand(time(NULL) + rank + omp_get_thread_num());
+
 		for (int i = 0; i < arraySize; i++)
 		{
 			data[i] = (rand() / (float)RAND_MAX) * 1000;
@@ -154,28 +165,50 @@ int main(int argc, char *argv[])
 
 		MPI_Offset offset = base + outdata * sizeof(float);
 		// printf("offset %ld\n",offset);
-		MPI_File_write_at(file, offset, data, writeSize[omp_get_thread_num()], MPI_FLOAT, MPI_STATUS_IGNORE);
+		MPI_File_write_at(file, offset, data, writeSize[threadNum], MPI_FLOAT, MPI_STATUS_IGNORE);
+	}
+	//End of parallel region
 
-		//Read from file
+	//Read from file
+	//============================================================================================
+	base = 2;
+	int readSize[numThreads]; //Number of FLOATS each thread will read
+	float* processReadData[numThreads];
+
+	#pragma omp parallel
+	{
+		int threadNum = omp_get_thread_num();
+
+		//Read the header first
 		//============================================================================================
+		MPI_Offset threadOffset = base + (rank*numThreads + threadNum)*sizeof(float);
+		MPI_File_read_at(file, threadOffset, &readSize[threadNum], 1, MPI_FLOAT, MPI_STATUS_IGNORE);
+
+		int localReadCount;
+		base = 2 + size*numThreads*sizeof(float);
+		MPI_Exscan_omp(readSize, &localReadCount);
+		threadOffset = base + localReadCount*sizeof(float);
+
+		printf("Thread (%d, %d) will start reading %d floats starting from byte %ld\n", rank, threadNum, readSize[threadNum], threadOffset);
+
 		#pragma omp barrier
 		#pragma omp single
 		MPI_Barrier(MPI_COMM_WORLD);
 
-		float *buffer = (float *)malloc(arraySize * sizeof(float));
-		MPI_File_read_at(file, offset, buffer, arraySize, MPI_FLOAT, MPI_STATUS_IGNORE);
+		processReadData[threadNum] = (float*)malloc(readSize[threadNum] * sizeof(float));
+
+		MPI_File_read_at(file, threadOffset, processReadData[threadNum], readSize[threadNum], MPI_FLOAT, MPI_STATUS_IGNORE);
 
 		for (int i = 0; i < arraySize; i++)
 		{
-			if (buffer[i] != data[i])
+			if (processReadData[threadNum][i] != processWriteData[threadNum][i])
 			{
-				printf("%lf %lf\n", buffer[i], data[i]);
+				printf("%lf %lf\n", processReadData[threadNum][i], processWriteData[threadNum][i]);
 				errFlag = 1;
 				break;
 			}
 		}
 	}
-	//End of parallel region
 
 	//Error handling
 	//============================================================================================
