@@ -1,5 +1,10 @@
 .vscode
 ask1a
 ask1b
+ask1c
+ask1d
+ask1d zlib.c
+ask1d_zstd.c
 io*
 *btr
+.*.bin
