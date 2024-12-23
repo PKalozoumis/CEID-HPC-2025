@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <omp.h>
 #include <time.h>
+#include <math.h>
 
 int rank, size;
 
@@ -41,21 +42,24 @@ void MPI_Exscan_omp(int *in, int *out)
 
 //============================================================================================
 
-size_t compress_array(float *data, size_t nx, size_t ny, size_t nz, unsigned char **compressedData, int precision)
+size_t compress_array(float *data, size_t N, unsigned char** compressedData)
 {
+	//int precision: Affects truncation. Default is 24 bits. Cannot exceed 32 bits for floats
+	//double tolerance: The accuracy. How close the compressed data is to the original. Controls the MAX ERROR allowed during the compression process. Default is 0
+
 	zfp_type type = zfp_type_float; // Specify float type
-	zfp_field *field = zfp_field_3d(data, type, nx, ny, nz);
+	zfp_field *field = zfp_field_3d(data, type, N, N, N);
 	zfp_stream *zfp = zfp_stream_open(NULL);
 
-	// Set precision
-	zfp_stream_set_precision(zfp, precision);
+	zfp_stream_set_precision(zfp, 16);
+	//zfp_stream_set_accuracy(zfp, 0);
 
 	// Allocate buffer for compressed data
 	size_t bufsize = zfp_stream_maximum_size(zfp, field);
 	*compressedData = (unsigned char *)malloc(bufsize);
 
 	// Associate buffer with ZFP stream
-	bitstream *stream = stream_open(*compressedData, bufsize);
+	bitstream* stream = stream_open(*compressedData, bufsize);
 	zfp_stream_set_bit_stream(zfp, stream);
 	zfp_stream_rewind(zfp);
 
@@ -77,14 +81,13 @@ size_t compress_array(float *data, size_t nx, size_t ny, size_t nz, unsigned cha
 
 //============================================================================================
 
-// Helper function for ZFP decompression
-void decompress_array(unsigned char *compressedData, size_t compressedSize, float *data, size_t nx, size_t ny, size_t nz)
+void decompress_array(unsigned char* compressedData, size_t compressedSize, float* originalData, size_t N)
 {
 	zfp_type type = zfp_type_float;
-	zfp_field *field = zfp_field_3d(data, type, nx, ny, nz);
-	zfp_stream *zfp = zfp_stream_open(NULL);
+	zfp_field* field = zfp_field_3d(originalData, type, N, N, N);
+	zfp_stream* zfp = zfp_stream_open(NULL);
 
-	bitstream *stream = stream_open(compressedData, compressedSize);
+	bitstream* stream = stream_open(compressedData, compressedSize);
 	zfp_stream_set_bit_stream(zfp, stream);
 	zfp_stream_rewind(zfp);
 
@@ -189,12 +192,13 @@ int main(int argc, char *argv[])
 	//============================================================================================
 	#pragma omp parallel firstprivate(outdata)
 	{
+		int threadNum = omp_get_thread_num();
 		float *data = (float *)malloc(arraySize * sizeof(float));
-
-		srand(time(NULL) + rank + omp_get_thread_num());
 
 		// Initialize the matrix
 		//============================================================================================
+		srand(time(NULL) + rank + omp_get_thread_num());
+
 		for (int i = 0; i < arraySize; i++)
 		{
 			data[i] = (rand() / (float)RAND_MAX) * 1000;
@@ -202,14 +206,16 @@ int main(int argc, char *argv[])
 
 		// Compress the matrix
 		//============================================================================================
-		unsigned char *compressedData = NULL;
-		size_t compressedSize = compress_array(data, N, N, N, &compressedData, 16);
+		unsigned char* compressedData = NULL;
+		int compressedSize = (int)compress_array(data, N, &compressedData);
 
-		printf("compressedSize: %ld\n", compressedSize);
+		printf("compressedSize: %d\n", compressedSize);
 
-		writeSize[omp_get_thread_num()] = compressedSize;
+		writeSize[threadNum] = compressedSize;
 
 		#pragma omp barrier
+		MPI_Barrier(MPI_COMM_WORLD);
+
 		MPI_Exscan_omp(writeSize, &outdata);
 
 		// Continue writing header
@@ -220,8 +226,11 @@ int main(int argc, char *argv[])
 		{
 			MPI_Offset header_offset = 1 + numThreads * sizeof(int) * rank;
 			MPI_File_write_at(file, header_offset, &writeSize, numThreads, MPI_INT, MPI_STATUS_IGNORE);
-			base += totalThreads * sizeof(int);
+			base = 1 + totalThreads * sizeof(int);
 		}
+
+		//printf("Base: %ld\n", base);
+		printf("Start at: %d\n", outdata);
 
 		// Start writing to file
 		//============================================================================================
@@ -241,14 +250,16 @@ int main(int argc, char *argv[])
 
 		MPI_File_read_at(file, offset, compressedData, compressedSize, MPI_BYTE, MPI_STATUS_IGNORE);
 
-		float *decompressedData = (float *)malloc(arraySize * sizeof(float));
-		decompress_array(compressedData, compressedSize, decompressedData, N, N, N);
+		float* decompressedData = (float*)malloc(arraySize * sizeof(float));
+		decompress_array(compressedData, compressedSize, decompressedData, N);
 
 		for (int i = 0; i < arraySize; i++)
 		{
-			if (decompressedData[i] != data[i])
+			if (fabs(decompressedData[i] - data[i]) > 2)
 			{
+				printf("%lf %lf\n", decompressedData[i], data[i]);
 				errFlag = 1;
+
 				break;
 			}
 		}
