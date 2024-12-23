@@ -1,0 +1,13 @@
+[
+    {
+        "type": "serial"
+    },
+    {
+        "type": "pool",
+        "processes": 9
+    },
+    {
+        "type": "mpi",
+        "processes": 9
+    }
+]
