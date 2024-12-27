@@ -35,6 +35,8 @@ for i, test in enumerate(tests):
             subprocess.run(["python3", "gs_parallel_pool.py", str(test["processes"])] + train_params)
         elif test_type == "mpi":
             subprocess.run(["mpiexec", "-n", str(test["processes"]), "python3", "./gs_parallel_mpi.py"] + train_params)
+        elif test_type == "futures":
+            subprocess.run(["mpiexec", "-n", str(test["processes"]), "python3", "./gs_parallel_futures.py"] + train_params)
         else:
             print(f"Invalid type \"{test_type}\". Must be \"pool\", \"mpi\" or \"serial\"", file=sys.stderr)
             sys.exit()

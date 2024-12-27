@@ -1,6 +1,7 @@
 [
     {
-        "type": "serial"
+        "type": "serial",
+        "samples": 
     },
     {
         "type": "pool",
@@ -8,6 +9,10 @@
     },
     {
         "type": "mpi",
+        "processes": 9
+    },
+    {
+        "type": "futures",
         "processes": 9
     }
 ]
