@@ -31,11 +31,9 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random
 
 def test_params(p: dict[str, any]) -> Result:
     rank = MPI.COMM_WORLD.Get_rank()
-   
     l1 = p['mlp_layer1']
     l2 = p['mlp_layer2']
     l3 = p['mlp_layer3']
-    print(f"Process {rank} runs {l1}, {l2}, {l3}")
     m = MLPClassifier(hidden_layer_sizes=(l1, l2, l3), max_iter=500)
     m.fit(X_train, y_train)
     y_pred = m.predict(X_test)
@@ -61,9 +59,9 @@ if __name__ == "__main__":
 
         sys.stdout.flush()
     
-        params = {'mlp_layer1': [args.v1, args.v2],
+        params = [{'mlp_layer1': [args.v1, args.v2],
                     'mlp_layer2': [args.v1, args.v2],
-                    'mlp_layer3': [args.v1, args.v2]}
+                    'mlp_layer3': [args.v1, args.v2]}]
 
         pg = ParameterGrid(params)
 
@@ -75,11 +73,11 @@ if __name__ == "__main__":
 
         results = executor.map(test_params, pg)
 
+        print(f"\nTime: {time.time() - t:.02f}s")
+
         print("\n(l1, l2, l3): score\n---------------------")
 
         for r in results:
             print(f"({r.l1}, {r.l2}, {r.l3}): {r.score:.4f}")
-
-        print(f"\nTime: {time.time() - t:.02f}s")
 
         print()

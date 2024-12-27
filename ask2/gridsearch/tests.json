@@ -1,18 +1,25 @@
 [
     {
         "type": "serial",
-        "samples": 
+        "samples": 50000,
+        "features": 100
     },
     {
         "type": "pool",
-        "processes": 9
+        "processes": 9,
+        "samples": 50000,
+        "features": 100
     },
     {
         "type": "mpi",
-        "processes": 9
+        "processes": 9,
+        "samples": 50000,
+        "features": 100
     },
     {
         "type": "futures",
-        "processes": 9
+        "processes": 9,
+        "samples": 50000,
+        "features": 100
     }
 ]
