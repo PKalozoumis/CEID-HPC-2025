@@ -42,7 +42,7 @@ for i, p in enumerate(pg):
     l1 = p['mlp_layer1']
     l2 = p['mlp_layer2']
     l3 = p['mlp_layer3']
-    m = MLPClassifier(hidden_layer_sizes=(l1, l2, l3))
+    m = MLPClassifier(hidden_layer_sizes=(l1, l2, l3), max_iter=500)
     m.fit(X_train, y_train)
     y_pred = m.predict(X_test)
     ac = accuracy_score(y_pred, y_test)
