@@ -57,6 +57,10 @@ size_t compress_array(float *data, size_t N, unsigned char** compressedData)
 	// Allocate buffer for compressed data
 	size_t bufsize = zfp_stream_maximum_size(zfp, field);
 	*compressedData = (unsigned char *)malloc(bufsize);
+  if (compressedData == NULL) {
+      printf("Memory allocation failed\n");
+      exit(EXIT_FAILURE);
+    }
 
 	// Associate buffer with ZFP stream
 	bitstream* stream = stream_open(*compressedData, bufsize);
@@ -194,6 +198,10 @@ int main(int argc, char *argv[])
 	{
 		int threadNum = omp_get_thread_num();
 		float *data = (float *)malloc(arraySize * sizeof(float));
+    if (data == NULL) {
+      printf("Memory allocation failed\n");
+      exit(EXIT_FAILURE);
+    }
 
 		// Initialize the matrix
 		//============================================================================================
@@ -251,6 +259,11 @@ int main(int argc, char *argv[])
 		MPI_File_read_at(file, offset, compressedData, compressedSize, MPI_BYTE, MPI_STATUS_IGNORE);
 
 		float* decompressedData = (float*)malloc(arraySize * sizeof(float));
+    if (decompressedData == NULL) {
+      printf("Memory allocation failed\n");
+      exit(EXIT_FAILURE);
+    }
+
 		decompress_array(compressedData, compressedSize, decompressedData, N);
 
 		for (int i = 0; i < arraySize; i++)
