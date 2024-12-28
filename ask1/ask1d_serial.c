@@ -103,8 +103,6 @@ void decompress_array(unsigned char *compressedData, size_t compressedSize, floa
 
   size_t bufsize = zfp_stream_maximum_size(zfp, field);
 
-
-
   bitstream *stream = stream_open(compressedData, bufsize);
   if (stream == NULL)
   {
@@ -123,7 +121,7 @@ void decompress_array(unsigned char *compressedData, size_t compressedSize, floa
     zfp_stream_close(zfp); // Close the stream before exiting
     exit(EXIT_FAILURE);
   }
-  printf("test\n");
+  
   for (int i = 0; i < N; i++) // Print first 10 values for quick verification
   {
     printf("Decompressed data[%d]: %f\n", i, originalData[i]);
