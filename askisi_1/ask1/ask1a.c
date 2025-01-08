@@ -1,47 +1,55 @@
 #include <mpi.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#define MAX 1000
+#define MIN 1
 
 int rank, size;
 
 //============================================================================================
 
-void MPI_Exscan_pt2pt(int* in, int* out, int rank)
+void MPI_Exscan_pt2pt(int *in, int *out, int rank)
 {
-    int prev = 0;
+  int prev = 0;
 
-    if(rank!=0){
-        MPI_Recv(&prev, 1, MPI_INT, rank-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    }
+  if (rank != 0)
+  {
+    MPI_Recv(&prev, 1, MPI_INT, rank - 1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  }
 
-    *out = prev;
+  *out = prev;
 
-    if(rank!=size-1){
-        int next = prev + *in;
-        MPI_Send(&next, 1, MPI_INT, rank+1, 0, MPI_COMM_WORLD);
-    }
+  if (rank != size - 1)
+  {
+    int next = prev + *in;
+    MPI_Send(&next, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+  }
 }
 
 //============================================================================================
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    if (rank == 0)
-        printf("Processes: %d\n", size);
+  if (rank == 0)
+    printf("Processes: %d\n", size);
 
-    int num[] = {10, 20, 30, 40};
-    
-    int indata = num[rank];
-    int outdata = 0;
+  // int num[] = {10, 20, 30, 40};
 
-    MPI_Exscan_pt2pt(&indata, &outdata, rank);
+  srand(time(NULL) + rank);
+  int indata = (rand() % (MAX - MIN + 1)) + MIN;
+  int outdata = 0;
 
-    printf("Process: %d Indata: %d Result: %d\n", rank, indata, outdata);
+  MPI_Exscan_pt2pt(&indata, &outdata, rank);
 
-    MPI_Finalize();
+  printf("Process: %d Indata: %d Result: %d\n", rank, indata, outdata);
 
-    return 0;
+  MPI_Finalize();
+
+  return 0;
 }
