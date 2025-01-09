@@ -30,6 +30,49 @@ void MPI_Exscan_pt2pt(int *in, int *out, int rank)
 
 //============================================================================================
 
+void validation(int *indata, int outdata_check)
+{
+
+  int outdata = 0;
+  int error = 0;
+
+  MPI_Exscan(indata, &outdata, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+  if (outdata_check != outdata)
+  {
+    error = 1;
+  }
+
+  int error_gather[size];
+
+  MPI_Gather(&error, 1, MPI_INT, error_gather, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+  if (rank == 0)
+  {
+
+    int validation = 0;
+
+    for (int i = 0; i < size; i++)
+    {
+      if (error_gather[i] == 1)
+      {
+        validation = 1;
+      }
+    }
+
+    if (validation == 1)
+    {
+      printf("Unsuccessful verification\n");
+    }
+    else
+    {
+      printf("Successful verification\n");
+    }
+  }
+}
+
+//============================================================================================
+
 int main(int argc, char *argv[])
 {
   MPI_Init(&argc, &argv);
@@ -48,6 +91,10 @@ int main(int argc, char *argv[])
   MPI_Exscan_pt2pt(&indata, &outdata, rank);
 
   printf("Process: %d Indata: %d Result: %d\n", rank, indata, outdata);
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  validation(&indata, outdata);
 
   MPI_Finalize();
 
