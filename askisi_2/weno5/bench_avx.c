@@ -17,7 +17,7 @@ float *myalloc(const int NENTRIES, const int verbose)
   const int initialize = 1;
   enum
   {
-    alignment_bytes = 32
+    alignment_bytes = 64
   };
   float *tmp = NULL;
 

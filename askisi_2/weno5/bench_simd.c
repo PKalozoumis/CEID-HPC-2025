@@ -15,7 +15,7 @@
 float * myalloc(const int NENTRIES, const int verbose )
 {
 	const int initialize = 1;
-	enum { alignment_bytes = 32 } ;
+	enum { alignment_bytes = 64 } ;
 	float * tmp = NULL;
 
 	const int result = posix_memalign((void **)&tmp, alignment_bytes, sizeof(float) * NENTRIES);
