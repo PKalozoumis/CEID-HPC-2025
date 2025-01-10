@@ -10,10 +10,19 @@ int rank, size;
 
 //============================================================================================
 
-void MPI_Exscan_omp(int *in, int *out)
+void MPI_Exscan_omp(int in, int *out)
 {
   static int prev = 0; // The offset in the file for the entire process
+  static int *process_data;
   int threadnum = omp_get_thread_num();
+
+#pragma omp critical
+  process_data = (int *)malloc(omp_get_num_threads() * sizeof(int));
+
+#pragma omp barrier
+  process_data[threadnum] = in;
+
+#pragma omp barrier
 
   // The first thread of the process must take the value that the last thread of the previous process passed on
   // In the case where this is the first process, there is nothing to take, and we assume prev = 0
@@ -29,13 +38,13 @@ void MPI_Exscan_omp(int *in, int *out)
   // All threads of the same process are aware of the other threads' counts
   // Each thread knows its inittial position in the file by summing up all the counts before it
   for (int i = 0; i < threadnum; i++)
-    *out += in[i];
+    *out += process_data[i];
 
   // The last thread of the process must send its value to the next process
   // If I am the last process, then there is nothing to send
   if (rank != size - 1 && threadnum == omp_get_num_threads() - 1)
   {
-    int next = *out + in[threadnum];
+    int next = *out + process_data[threadnum];
     MPI_Send(&next, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
   }
 }
@@ -238,7 +247,7 @@ int main(int argc, char *argv[])
 
     // Initialize the matrix
     //============================================================================================
-    srand(time(NULL) + rank + omp_get_thread_num());
+    srand(time(NULL) + rank * omp_get_num_threads() + omp_get_thread_num());
 
     for (int i = 0; i < arraySize; i++)
     {
@@ -258,7 +267,7 @@ int main(int argc, char *argv[])
 #pragma omp master
     MPI_Barrier(MPI_COMM_WORLD);
 
-    MPI_Exscan_omp(writeSize, &outdata);
+    MPI_Exscan_omp(compressedSize, &outdata);
 
 // Continue writing header
 //============================================================================================

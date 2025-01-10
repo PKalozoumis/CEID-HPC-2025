@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include<unistd.h>
 
 #define MAX 1000
 #define MIN 1
@@ -62,11 +63,11 @@ void validation(int *indata, int outdata_check)
 
     if (validation == 1)
     {
-      printf("Unsuccessful verification\n");
+      printf("-> Unsuccessful verification\n");
     }
     else
     {
-      printf("Successful verification\n");
+      printf("-> Successful verification\n");
     }
   }
 }
@@ -91,7 +92,8 @@ int main(int argc, char *argv[])
   MPI_Exscan_pt2pt(&indata, &outdata, rank);
 
   printf("Process: %d Indata: %d Result: %d\n", rank, indata, outdata);
-
+  
+  sleep(0.1);
   MPI_Barrier(MPI_COMM_WORLD);
 
   validation(&indata, outdata);
