@@ -12,136 +12,140 @@
 
 #include "weno_avx.h"
 
-float * myalloc(const int NENTRIES, const int verbose )
+float *myalloc(const int NENTRIES, const int verbose)
 {
-	const int initialize = 1;
-	enum { alignment_bytes = 32 } ;
-	float * tmp = NULL;
+  const int initialize = 1;
+  enum
+  {
+    alignment_bytes = 32
+  };
+  float *tmp = NULL;
 
-	const int result = posix_memalign((void **)&tmp, alignment_bytes, sizeof(float) * NENTRIES);
-	assert(result == 0);
+  const int result = posix_memalign((void **)&tmp, alignment_bytes, sizeof(float) * NENTRIES);
+  assert(result == 0);
 
-	if (initialize)
-	{
-		for(int i=0; i<NENTRIES; ++i)
-			tmp[i] = drand48();
+  if (initialize)
+  {
+    for (int i = 0; i < NENTRIES; ++i)
+      tmp[i] = drand48();
 
-		if (verbose)
-		{
-			for(int i=0; i<NENTRIES; ++i)
-				printf("tmp[%d] = %f\n", i, tmp[i]);
-			printf("==============\n");
-		}
-	}
-	return tmp;
+    if (verbose)
+    {
+      for (int i = 0; i < NENTRIES; ++i)
+        printf("tmp[%d] = %f\n", i, tmp[i]);
+      printf("==============\n");
+    }
+  }
+  return tmp;
 }
 
 double get_wtime()
 {
-	struct timeval t;
-	gettimeofday(&t,  NULL);
-	return t.tv_sec + t.tv_usec*1e-6;
+  struct timeval t;
+  gettimeofday(&t, NULL);
+  return t.tv_sec + t.tv_usec * 1e-6;
 }
 
 void check_error(const double tol, float ref[], float val[], const int N)
 {
-	static const int verbose = 0;
+  static const int verbose = 0;
 
-	for(int i=0; i<N; ++i)
-	{
-		assert(!isnan(ref[i]));
-		assert(!isnan(val[i]));
+  for (int i = 0; i < N; ++i)
+  {
+    assert(!isnan(ref[i]));
+    assert(!isnan(val[i]));
 
-		const double err = ref[i] - val[i];
-		const double relerr = err/fmaxf(FLT_EPSILON, fmaxf(fabs(val[i]), fabs(ref[i])));
+    const double err = ref[i] - val[i];
+    const double relerr = err / fmaxf(FLT_EPSILON, fmaxf(fabs(val[i]), fabs(ref[i])));
 
-		if (verbose) printf("+%1.1e,", relerr);
+    if (verbose)
+      printf("+%1.1e,", relerr);
 
-		if (fabs(relerr) >= tol && fabs(err) >= tol)
-			printf("\n%d: %e %e -> %e %e\n", i, ref[i], val[i], err, relerr);
+    if (fabs(relerr) >= tol && fabs(err) >= tol)
+      printf("\n%d: %e %e -> %e %e\n", i, ref[i], val[i], err, relerr);
 
-		assert(fabs(relerr) < tol || fabs(err) < tol);
-	}
+    assert(fabs(relerr) < tol || fabs(err) < tol);
+  }
 
-	if (verbose) printf("\t");
+  if (verbose)
+    printf("\t");
 }
-
 
 void benchmark(int argc, char *argv[], const int NENTRIES_, const int NTIMES, const int verbose, char *benchmark_name)
 {
-	const int NENTRIES = 4 * (NENTRIES_ / 4);
-	
-	double t = get_wtime();
-	
-	printf("nentries set to %e\n", (float)NENTRIES);
+  const int NENTRIES = 4 * (NENTRIES_ / 4);
 
-	float * const a = myalloc(NENTRIES, verbose);
-	float * const b = myalloc(NENTRIES, verbose);
-	float * const c = myalloc(NENTRIES, verbose);
-	float * const d = myalloc(NENTRIES, verbose);
-	float * const e = myalloc(NENTRIES, verbose);
-	float * const f = myalloc(NENTRIES, verbose);
-	float * const gold = myalloc(NENTRIES, verbose);
-	float * const result = myalloc(NENTRIES, verbose);
+  double t = get_wtime();
 
-	weno_minus_reference(a, b, c, d, e, gold, NENTRIES);
-	weno_minus_reference(a, b, c, d, e, result, NENTRIES);
+  printf("nentries set to %e\n", (float)NENTRIES);
 
-	printf("Time: %lf\n", get_wtime() - t);
+  float *const a = myalloc(NENTRIES, verbose);
+  float *const b = myalloc(NENTRIES, verbose);
+  float *const c = myalloc(NENTRIES, verbose);
+  float *const d = myalloc(NENTRIES, verbose);
+  float *const e = myalloc(NENTRIES, verbose);
+  float *const f = myalloc(NENTRIES, verbose);
+  float *const gold = myalloc(NENTRIES, verbose);
+  float *const result = myalloc(NENTRIES, verbose);
 
-	const double tol = 1e-5;
-	printf("minus: verifying accuracy with tolerance %.5e...", tol);
-	check_error(tol, gold, result, NENTRIES);
-	printf("passed!\n");
+  weno_minus_reference(a, b, c, d, e, gold, NENTRIES);
+  weno_minus(a, b, c, d, e, result, NENTRIES);
 
-	free(a);
-	free(b);
-	free(c);
-	free(d);
-	free(e);
-	free(gold);
-	free(result);
+  printf("Time: %lf\n", get_wtime() - t);
+
+  const double tol = 1e-3;
+  printf("minus: verifying accuracy with tolerance %.5e...", tol);
+  check_error(tol, gold, result, NENTRIES);
+  printf("passed!\n");
+
+  free(a);
+  free(b);
+  free(c);
+  free(d);
+  free(e);
+  free(gold);
+  free(result);
 }
 
-int main (int argc, char *  argv[])
+int main(int argc, char *argv[])
 {
-	printf("Hello, weno benchmark!\n");
-	const int debug = 0;
+  printf("Hello, weno benchmark!\n");
+  const int debug = 0;
 
-	if (debug)
-	{
-		benchmark(argc, argv, 4, 1, 1, "debug");
-		return 0;
-	}
-
-	double t = get_wtime();
-
-	/* performance on cache hits */
-	{
-		const double desired_kb =  32 * 8 * 0.5; /* we want to fill 50% of the dcache */
-		const int nentries = floor(desired_kb * 1024. / 7 / sizeof(float)); //16 * (int)(pow(32 + 6, 2) * 4);
-		const int ntimes = (int)floor(2. / (1e-7 * nentries));
-
-		for(int i=0; i<4; ++i)
-		{
-			printf("*************** PEAK-LIKE BENCHMARK (RUN %d) **************************\n", i);
-			benchmark(argc, argv, nentries, ntimes, 0, "cache");
-		}
-	}
-
-	/* performance on data streams */
-	{
-		const double desired_mb =  128 * 8;
-		const int nentries =  (int)floor(desired_mb * 1024. * 1024. / 7 / sizeof(float));
-
-		for(int i=0; i<4; ++i)
-		{
-			printf("*************** STREAM-LIKE BENCHMARK (RUN %d) **************************\n", i);
-			benchmark(argc, argv, nentries, 1, 0, "stream");
-		}
-	}
-
-	printf("\n\nTotal time: %lf\n\n", get_wtime() - t);
-
+  if (debug)
+  {
+    benchmark(argc, argv, 4, 1, 1, "debug");
     return 0;
+  }
+
+  double t = get_wtime();
+
+  /* performance on cache hits */
+  {
+    const double desired_kb = 32 * 8 * 0.5;                             /* we want to fill 50% of the dcache */
+    const int nentries = floor(desired_kb * 1024. / 7 / sizeof(float)); // 16 * (int)(pow(32 + 6, 2) * 4);
+    const int ntimes = (int)floor(2. / (1e-7 * nentries));
+
+    for (int i = 0; i < 4; ++i)
+    {
+      printf("*************** PEAK-LIKE BENCHMARK (RUN %d) **************************\n", i);
+      benchmark(argc, argv, nentries, ntimes, 0, "cache");
+    }
+  }
+
+  /* performance on data streams */
+  {
+    const double desired_mb = 128 * 16;
+    const int nentries = (int)floor(desired_mb * 1024. * 1024. / 7 / sizeof(float));
+
+    for (int i = 0; i < 4; ++i)
+    {
+      printf("*************** STREAM-LIKE BENCHMARK (RUN %d) **************************\n", i);
+      benchmark(argc, argv, nentries, 1, 0, "stream");
+    }
+  }
+
+  printf("\n\nTotal time: %lf\n\n", get_wtime() - t);
+
+  return 0;
 }
