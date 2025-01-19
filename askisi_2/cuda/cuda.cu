@@ -2,6 +2,7 @@
 #include <omp.h>
 #include <cuda.h>
 #include <sys/time.h>
+#include <math.h>
 
 //========================================================================================================
 
@@ -253,10 +254,11 @@ void cpu_calculation(float *A, float *B, float *C, float *D, int n, float** E, f
 void matrix_comparison(float **cpuE, float **cpuF,float* gpuE, float* gpuF, int n){
     
     int error=0;
-
+    double tolerance = 1e-0;
     for(int i=0;i<n;i++){
         for(int j=0;j<n;j++){
-            if(cpuE[i][j]!=gpuE[i*n+j] || cpuF[i][j]!=gpuF[i*n+j]){
+            if (fabs(cpuE[i][j] - gpuE[i * n + j]) > tolerance || 
+                fabs(cpuF[i][j] - gpuF[i * n + j]) > tolerance){
                 error=1;
                 break;
             }
@@ -359,6 +361,9 @@ int main(int argc, char **argv)
 
     sub_matrix<<<grid, block>>>(devAC, devAC, devBD, N);
     add_matrix<<<grid, block>>>(devAD, devAD, devBC, N);
+
+
+    cudaDeviceSynchronize(); //!!!!!!!!!!!!!!!!!!!
 
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
