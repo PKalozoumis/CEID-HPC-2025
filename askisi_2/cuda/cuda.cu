@@ -254,7 +254,7 @@ void cpu_calculation(float *A, float *B, float *C, float *D, int n, float** E, f
 void matrix_comparison(float **cpuE, float **cpuF,float* gpuE, float* gpuF, int n){
     
     int error=0;
-    double tolerance = 1e-0;
+    double tolerance = 1e-1;
     for(int i=0;i<n;i++){
         for(int j=0;j<n;j++){
             if (fabs(cpuE[i][j] - gpuE[i * n + j]) > tolerance || 
