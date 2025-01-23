@@ -13,7 +13,6 @@ int rank, size;
 
 //============================================================================================
 
-// Our MPI_Exsan implementation
 void MPI_Exscan_pt2pt(int *in, int *out, int rank)
 {
     int prev = 0;
@@ -38,7 +37,6 @@ void MPI_Exscan_pt2pt(int *in, int *out, int rank)
 
 //============================================================================================
 
-// Validation of our Excan Implementation
 void validation(int *indata, int outdata_check)
 {
 
@@ -48,7 +46,7 @@ void validation(int *indata, int outdata_check)
     // Calling MPI_Exscan with the same data
     MPI_Exscan(indata, &outdata, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
-    // Comparison of results
+    // Compare the data
     if (outdata_check != outdata)
     {
         error = 1;
@@ -116,7 +114,7 @@ int main(int argc, char *argv[])
     // Synchronization with Barrier
     MPI_Barrier(MPI_COMM_WORLD);
 
-    // Validate the result
+    // Validation the results
     validation(&indata, outdata);
 
     // Terminate the environment
