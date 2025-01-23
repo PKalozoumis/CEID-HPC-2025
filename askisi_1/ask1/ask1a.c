@@ -2,8 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include<unistd.h>
+#include <unistd.h>
 
+// Define the minimum and the maximum
+// integer of the random number generator
 #define MAX 1000
 #define MIN 1
 
@@ -11,94 +13,114 @@ int rank, size;
 
 //============================================================================================
 
+// Our MPI_Exsan implementation
 void MPI_Exscan_pt2pt(int *in, int *out, int rank)
 {
-  int prev = 0;
+    int prev = 0;
 
-  if (rank != 0)
-  {
-    MPI_Recv(&prev, 1, MPI_INT, rank - 1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-  }
+    // All processes except the 0 wait to receive the sum of the previous process
+    if (rank != 0)
+    {
+        MPI_Recv(&prev, 1, MPI_INT, rank - 1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
 
-  *out = prev;
+    // The result of a process
+    *out = prev;
 
-  if (rank != size - 1)
-  {
-    int next = prev + *in;
-    MPI_Send(&next, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
-  }
+    //Each process except the last one send the sum to the next
+    if (rank != size - 1)
+    {
+        // Calculation of sum to send to the next process
+        int next = prev + *in;
+        MPI_Send(&next, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+    }
 }
 
 //============================================================================================
 
+// Validation of our Excan Implementation
 void validation(int *indata, int outdata_check)
 {
 
-  int outdata = 0;
-  int error = 0;
+    int outdata = 0;
+    int error = 0;
 
-  MPI_Exscan(indata, &outdata, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    // Calling MPI_Exscan with the same data
+    MPI_Exscan(indata, &outdata, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
-  if (outdata_check != outdata)
-  {
-    error = 1;
-  }
-
-  int error_gather[size];
-
-  MPI_Gather(&error, 1, MPI_INT, error_gather, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-  if (rank == 0)
-  {
-
-    int validation = 0;
-
-    for (int i = 0; i < size; i++)
+    // Comparison of results
+    if (outdata_check != outdata)
     {
-      if (error_gather[i] == 1)
-      {
-        validation = 1;
-      }
+        error = 1;
     }
 
-    if (validation == 1)
+    int error_gather[size];
+
+    // Send the result of the validation to the process 0
+    MPI_Gather(&error, 1, MPI_INT, error_gather, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if (rank == 0)
     {
-      printf("-> Unsuccessful verification\n");
+
+        int validation = 0;
+
+        // Checking every process validation
+        for (int i = 0; i < size; i++)
+        {
+            if (error_gather[i] == 1)
+            {
+                validation = 1;
+            }
+        }
+
+        // Print the result validation
+        if (validation == 1)
+        {
+            printf("-> Unsuccessful verification\n");
+        }
+        else
+        {
+            printf("-> Successful verification\n");
+        }
     }
-    else
-    {
-      printf("-> Successful verification\n");
-    }
-  }
 }
 
 //============================================================================================
 
 int main(int argc, char *argv[])
 {
-  MPI_Init(&argc, &argv);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
+    // Initialize the environment, obtain the rank 
+    // and the total number of processes
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  if (rank == 0)
-    printf("Processes: %d\n", size);
+    // Print the total number of processes
+    if (rank == 0)
+        printf("Processes: %d\n", size);
 
-  // int num[] = {10, 20, 30, 40};
+    // Initialize random number generator,
+    // unique for each process
+    srand(time(NULL) + rank);
 
-  srand(time(NULL) + rank);
-  int indata = (rand() % (MAX - MIN + 1)) + MIN;
-  int outdata = 0;
+    // Create the data
+    int indata = (rand() % (MAX - MIN + 1)) + MIN;
+    int outdata = 0;
 
-  MPI_Exscan_pt2pt(&indata, &outdata, rank);
+    // Implementation of Exscan function
+    MPI_Exscan_pt2pt(&indata, &outdata, rank);
 
-  printf("Process: %d Indata: %d Result: %d\n", rank, indata, outdata);
-  
-  sleep(0.1);
-  MPI_Barrier(MPI_COMM_WORLD);
+    // Print the result of our Excan function
+    printf("Process: %d Indata: %d Result: %d\n", rank, indata, outdata);
 
-  validation(&indata, outdata);
+    // Synchronization with Barrier
+    MPI_Barrier(MPI_COMM_WORLD);
 
-  MPI_Finalize();
+    // Validate the result
+    validation(&indata, outdata);
 
-  return 0;
+    // Terminate the environment
+    MPI_Finalize();
+
+    return 0;
 }
