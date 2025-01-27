@@ -9,3 +9,7 @@ io*
 *btr
 *.bin
 myenv/
+askisi_2/weno5/bench_avx
+askisi_2/weno5/bench
+askisi_2/weno5/bench_simd
+askisi_2/cuda/cuda

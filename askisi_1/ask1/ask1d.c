@@ -16,13 +16,13 @@ void MPI_Exscan_omp(int in, int *out)
 	static int *process_data;
 	int threadnum = omp_get_thread_num();
 
-#pragma omp critical
+	#pragma omp single
 	process_data = (int *)malloc(omp_get_num_threads() * sizeof(int));
 
-#pragma omp barrier
+	#pragma omp barrier
 	process_data[threadnum] = in;
 
-#pragma omp barrier
+	#pragma omp barrier
 
 	// The first thread of the process must take the value that the last thread of the previous process passed on
 	// In the case where this is the first process, there is nothing to take, and we assume prev = 0
@@ -31,8 +31,8 @@ void MPI_Exscan_omp(int in, int *out)
 		MPI_Recv(&prev, 1, MPI_INT, rank - 1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 	}
 
-// Ensure that the value of prev was read by the fist thread of the process
-#pragma omp barrier
+	// Ensure that the value of prev was read by the fist thread of the process
+	#pragma omp barrier
 	*out = prev;
 
 	// All threads of the same process are aware of the other threads' counts
@@ -230,12 +230,13 @@ int main(int argc, char *argv[])
 		MPI_File_write_at(file, base, &totalThreads, 1, MPI_BYTE, MPI_STATUS_IGNORE);
 	}
 
-#pragma omp barrier
-#pragma omp master
+	#pragma omp barrier
+	#pragma omp single
 	MPI_Barrier(MPI_COMM_WORLD);
-// Parallel region
-//============================================================================================
-#pragma omp parallel firstprivate(outdata)
+
+	// Parallel region
+	//============================================================================================
+	#pragma omp parallel firstprivate(outdata)
 	{
 		int threadNum = omp_get_thread_num();
 		float *data = (float *)malloc(arraySize * sizeof(float));
@@ -263,17 +264,17 @@ int main(int argc, char *argv[])
 
 		writeSize[threadNum] = compressedSize;
 
-#pragma omp barrier
-#pragma omp master
+		#pragma omp barrier
+		#pragma omp single
 		MPI_Barrier(MPI_COMM_WORLD);
 
 		MPI_Exscan_omp(compressedSize, &outdata);
 
-// Continue writing header
-//============================================================================================
+		// Continue writing header
+		//============================================================================================
 
-// One thread from each process must write in the header how many bytes each thread will write
-#pragma omp single
+		// One thread from each process must write in the header how many bytes each thread will write
+		#pragma omp single
 		{
 			MPI_Offset header_offset = 1 + numThreads * sizeof(int) * rank;
 			MPI_File_write_at(file, header_offset, &writeSize, numThreads, MPI_INT, MPI_STATUS_IGNORE);
@@ -283,20 +284,20 @@ int main(int argc, char *argv[])
 		// printf("Base: %ld\n", base);
 		// printf("Start at: %d\n", outdata);
 
-// Start writing to file
-//============================================================================================
-#pragma omp barrier
-#pragma omp single
+		// Start writing to file
+		//============================================================================================
+		#pragma omp barrier
+		#pragma omp single
 		MPI_Barrier(MPI_COMM_WORLD);
 
 		MPI_Offset offset = base + outdata;
 		// printf("offset %ld\n",offset);
 		MPI_File_write_at(file, offset, compressedData, compressedSize, MPI_BYTE, MPI_STATUS_IGNORE);
 
-// Read from file
-//============================================================================================
-#pragma omp barrier
-#pragma omp single
+		// Read from file
+		//============================================================================================
+		#pragma omp barrier
+		#pragma omp single
 		MPI_Barrier(MPI_COMM_WORLD);
 
 		MPI_File_read_at(file, offset, compressedData, compressedSize, MPI_BYTE, MPI_STATUS_IGNORE);

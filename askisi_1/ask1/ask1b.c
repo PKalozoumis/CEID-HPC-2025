@@ -18,13 +18,13 @@ void MPI_Exscan_omp(int in, int *out)
     static int *process_data;
     int threadnum = omp_get_thread_num();
 
-#pragma omp critical
+    #pragma omp single
     process_data = (int *)malloc(omp_get_num_threads() * sizeof(int));
 
-#pragma omp barrier
+    #pragma omp barrier
     process_data[threadnum] = in;
 
-#pragma omp barrier
+    #pragma omp barrier
 
     // The first thread of the process must take the value that the last thread of the previous process passed on
     // In the case where this is the first process, there is nothing to take, and we assume prev = 0
@@ -33,8 +33,8 @@ void MPI_Exscan_omp(int in, int *out)
         MPI_Recv(&prev, 1, MPI_INT, rank - 1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
 
-// Ensure that the value of prev was read by the fist thread of the process
-#pragma omp barrier
+    // Ensure that the value of prev was read by the fist thread of the process
+    #pragma omp barrier
     *out = prev;
 
     // All threads of the same process are aware of the other threads' counts
@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
     int indata_share_thread[threads];
     int outdata_share_thread[threads];
 
-#pragma omp parallel firstprivate(outdata)
+    #pragma omp parallel firstprivate(outdata)
     {
         // Initialize random number generator, unique for each process
         // and each thread
