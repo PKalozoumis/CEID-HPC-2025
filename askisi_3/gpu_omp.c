@@ -1,8 +1,18 @@
 #include <stdio.h>
 #include <omp.h>
-#include <cuda.h>
-#include <sys/time.h>
+#include <time.h>
 #include <math.h>
+#include <stdlib.h>
+#include <sys/time.h>
+
+//========================================================================================================
+
+double get_wtime()
+{
+	struct timeval t;
+	gettimeofday(&t, NULL);
+	return t.tv_sec + t.tv_usec * 1e-6;
+}
 
 //========================================================================================================
 
@@ -14,30 +24,6 @@ void alloc_2d(float*** A, int N)
     {
         (*A)[i] = (float*)malloc(N * sizeof(float));
     }
-}
-
-//========================================================================================================
-
-void initialize_matrix(float **matrix, int N)
-{
-    srand(time(NULL) + 1000 * omp_get_thread_num());
-    // printf("%d\n", omp_get_thread_num());
-
-    *matrix = (float *)malloc(N * N * sizeof(float));
-
-    for (int i = 0; i < N * N; i++)
-    {
-        (*matrix)[i] = (rand() / (float)RAND_MAX) * 10;
-    }
-}
-
-//========================================================================================================
-
-double get_wtime()
-{
-    struct timeval t;
-    gettimeofday(&t, NULL);
-    return t.tv_sec + t.tv_usec * 1e-6;
 }
 
 //========================================================================================================
@@ -64,59 +50,83 @@ void print_matrix(float *matrix, int N)
 
 //========================================================================================================
 
-__global__ void multiply_matrix(float *R, float *M1, float *M2, int N)
+void print_matrix_cpu(float** matrix, int N)
 {
-    int i = blockIdx.y * blockDim.y + threadIdx.y;
-    int j = blockIdx.x * blockDim.x + threadIdx.x;
+    printf("==================================================================\n");
 
-    // printf("(%d, %d)\n", i, j);
-
-    if (i < N && j < N)
+    for (int i = 0; i < N; i++)
     {
-        for (int k = 0; k < N; k++)
-            R[i * N + j] += M1[i * N + k] * M2[k * N + j];
-    }
-}
-
-//========================================================================================================
-
-__global__ void add_matrix(float *R, float *M1, float *M2, int N)
-{
-    int i = blockIdx.y * blockDim.y + threadIdx.y;
-    int j = blockIdx.x * blockDim.x + threadIdx.x;
-    int pos = i * N + j;
-
-    if (i < N && j < N)
-    {
-        R[pos] = M1[pos] + M2[pos];
-    }
-}
-
-//========================================================================================================
-
-__global__ void sub_matrix(float *R, float *M1, float *M2, int N)
-{
-    int i = blockIdx.y * blockDim.y + threadIdx.y;
-    int j = blockIdx.x * blockDim.x + threadIdx.x;
-    int pos = i * N + j;
-
-    if (i < N && j < N)
-    {
-        R[pos] = M1[pos] - M2[pos];
-    }
-}
-
-//========================================================================================================
-
-void cpu_matrix_add(float **AB, float **CD, float **result ,int n)
-{
-
-    for (int i = 0; i < n; i++)
-    {
-        for (int j = 0; j < n; j++)
+        for (int j = 0; j < N; j++)
         {
-            result[i][j] = AB[i][j] + CD[i][j];
+            printf("%.02f", matrix[i][j]);
+
+            if (j < N - 1)
+            {
+                printf("\t");
+            }
         }
+        printf("\n");
+    }
+}
+
+//========================================================================================================
+
+void multiply_matrix(float *R, float *M1, float *M2, int N)
+{
+    #pragma omp target data use_device_addr(R, M1, M2)
+    #pragma omp target teams distribute parallel for collapse(2)
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < N; j++)
+        {
+            float sum = 0.0f;
+
+            for (int k = 0; k < N; k++)
+                sum += M1[i * N + k] * M2[k * N + j];
+
+            R[i * N + j] = sum;
+        }
+    }
+}
+
+//========================================================================================================
+
+void add_matrix(float *R, float *M1, float *M2, int N)
+{
+    #pragma omp target data use_device_addr(R, M1, M2)
+    #pragma omp target teams distribute parallel for simd collapse(2)
+    for (int i = 0; i < N; i++)
+        for (int j = 0; j < N; j++)
+            R[i*N + j] = M1[i*N + j] + M2[i*N + j];
+}
+
+//========================================================================================================
+
+void sub_matrix(float *R, float *M1, float *M2, int N)
+{
+
+
+    #pragma omp target data use_device_addr(R, M1, M2)
+    #pragma omp target teams distribute parallel for simd collapse(2)
+    for (int i = 0; i < N; i++)
+        for (int j = 0; j < N; j++)
+            R[i*N + j] = M1[i*N + j] - M2[i*N + j];
+
+}
+
+
+//========================================================================================================
+
+void initialize_matrix(float **matrix, int N)
+{
+    srand(time(NULL) + 1000 * omp_get_thread_num());
+    // printf("%d\n", omp_get_thread_num());
+
+    *matrix = (float *)malloc(N * N * sizeof(float));
+
+    for (int i = 0; i < N * N; i++)
+    {
+        (*matrix)[i] = (rand() / (float)RAND_MAX) * 10;
     }
 }
 
@@ -153,6 +163,20 @@ void cpu_matrix_mull(float *A, float *B, float** result, int n)
 
 //========================================================================================================
 
+void cpu_matrix_add(float **AB, float **CD, float **result ,int n)
+{
+
+    for (int i = 0; i < n; i++)
+    {
+        for (int j = 0; j < n; j++)
+        {
+            result[i][j] = AB[i][j] + CD[i][j];
+        }
+    }
+}
+
+//========================================================================================================
+
 void free_memMatrix(float **matrix, int n){
     for(int i=0;i<n;i++){
         free(matrix[i]);
@@ -165,6 +189,9 @@ void free_memMatrix(float **matrix, int n){
 
 void cpu_calculation(float *A, float *B, float *C, float *D, int n, float** E, float** F)
 {
+
+    printf("Initializing in the host\n");
+    fflush(stdout);
 
     float **AC, **BD, **AD, **BC;
 
@@ -180,6 +207,11 @@ void cpu_calculation(float *A, float *B, float *C, float *D, int n, float** E, f
         AD[i] = (float *)malloc(n * sizeof(float));
         BC[i] = (float *)malloc(n * sizeof(float));
     }
+    
+    printf("Starting CPU calculations\n");
+    fflush(stdout);
+
+    double t = get_wtime();
 
     #pragma omp parallel
     {
@@ -211,7 +243,9 @@ void cpu_calculation(float *A, float *B, float *C, float *D, int n, float** E, f
         }
     }
 
-     #pragma omp parallel
+    printf("Time: %lf\n", get_wtime() - t);
+
+    #pragma omp parallel
     {
         #pragma omp single
         {
@@ -229,6 +263,7 @@ void cpu_calculation(float *A, float *B, float *C, float *D, int n, float** E, f
         }
     }
 }
+
 
 //========================================================================================================
 
@@ -272,6 +307,9 @@ int main(int argc, char **argv)
     // Initialize matrices in host
     //===========================================================================
 
+    printf("Initializing in the host\n");
+    fflush(stdout);
+
     float *A, *B, *C, *D;
 
     #pragma omp parallel
@@ -292,90 +330,36 @@ int main(int argc, char **argv)
         }
     }
 
-    /*
-    printf("\nA\n");
-    print_matrix(A, N);
-    printf("\nB\n");
-    print_matrix(B, N);
-    printf("\nC\n");
-    print_matrix(C, N);
-    printf("\nD\n");
-    print_matrix(D, N);*/
+    //===========================================================================
 
-    float *devA, *devB, *devC, *devD, *devAC, *devBD, *devAD, *devBC;
+    int arraySize = N*N;
 
-    int arraySize = N * N * sizeof(float);
+    float *E = (float *)malloc(arraySize * sizeof(float));
+    float *F = (float *)malloc(arraySize * sizeof(float));
+    float *AC = (float*)malloc(arraySize * sizeof(float));
+    float *BD = (float*)malloc(arraySize * sizeof(float));
+    float *AD = (float*)malloc(arraySize * sizeof(float));
+    float *BC = (float*)malloc(arraySize * sizeof(float));
 
-    cudaMalloc(&devA, arraySize);
-    cudaMalloc(&devB, arraySize);
-    cudaMalloc(&devC, arraySize);
-    cudaMalloc(&devD, arraySize);
-    cudaMalloc(&devAC, arraySize);
-    cudaMalloc(&devBD, arraySize);
-    cudaMalloc(&devAD, arraySize);
-    cudaMalloc(&devBC, arraySize);
+    double t = get_wtime();
 
-    cudaMemset(devAC, 0, arraySize);
-    cudaMemset(devBD, 0, arraySize);
-    cudaMemset(devAD, 0, arraySize);
-    cudaMemset(devBC, 0, arraySize);
-
-    cudaMemcpy(devA, A, arraySize, cudaMemcpyHostToDevice);
-    cudaMemcpy(devB, B, arraySize, cudaMemcpyHostToDevice);
-    cudaMemcpy(devC, C, arraySize, cudaMemcpyHostToDevice);
-    cudaMemcpy(devD, D, arraySize, cudaMemcpyHostToDevice);
-
-    int blockSize = 16;
-    dim3 block(blockSize, blockSize); // 16x16 = 256 threads per block. A multiple of 32, the warp size
-    dim3 grid((N + blockSize - 1) / blockSize, (N + blockSize - 1) / blockSize);
-
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
+    printf("Starting GPU calculations\n");
+    fflush(stdout);
     
-    cudaEventRecord(start, 0);
+    #pragma omp target data map(to: A[0:N*N],B[0:N*N],C[0:N*N],D[0:N*N]) map(from: E[0:N*N],F[0:N*N]) map(alloc: AC[0:N*N], BD[0:N*N], AD[0:N*N], BC[0:N*N])
+    {
+        multiply_matrix(AC, A, C, N);
+        multiply_matrix(BD, B, D, N);
+        multiply_matrix(AD, A, D, N);
+        multiply_matrix(BC, B, C, N);
 
-    multiply_matrix<<<grid, block>>>(devAC, devA, devC, N);
-    multiply_matrix<<<grid, block>>>(devBD, devB, devD, N);
-    multiply_matrix<<<grid, block>>>(devAD, devA, devD, N);
-    multiply_matrix<<<grid, block>>>(devBC, devB, devC, N);
+        sub_matrix(E, AC, BD, N);
+        add_matrix(F, AD, BC, N);
+    }
 
-    cudaFree(devA);
-    cudaFree(devB);
-    cudaFree(devC);
-    cudaFree(devD);
-
-    sub_matrix<<<grid, block>>>(devAC, devAC, devBD, N);
-    add_matrix<<<grid, block>>>(devAD, devAD, devBC, N);
-
-    cudaDeviceSynchronize(); //!!!!!!!!!!!!!!!!!!!
-
-    cudaEventRecord(stop, 0);
-    cudaEventSynchronize(stop);
-
-    float milliseconds = 0;
-    cudaEventElapsedTime(&milliseconds, start, stop);
-
-    printf("Total time for GPU calculations: %.03lfs\n", milliseconds/1000);
-
-    cudaEventDestroy(start);
-    cudaEventDestroy(stop);
-
-    // Get back final results
-
-    float *E = (float *)malloc(arraySize);
-    float *F = (float *)malloc(arraySize);
-
-    cudaMemcpy(E, devAC, arraySize, cudaMemcpyDeviceToHost);
-    cudaMemcpy(F, devAD, arraySize, cudaMemcpyDeviceToHost);
+    printf("Time: %lf\n", get_wtime() - t);
 
     //print_matrix(E, N);
-    //print_matrix(F, N);
-
-    cudaFree(devAC);
-    cudaFree(devBD);
-    cudaFree(devAD);
-    cudaFree(devBC);
 
     // Verify results
     //-------------------------------------------------------------------------------
@@ -387,17 +371,20 @@ int main(int argc, char **argv)
 
     //print_matrix_cpu(Echeck, N);
     //print_matrix_cpu(Fcheck, N);
-
+    
     matrix_comparison(Echeck,Fcheck,E,F,N);
 
     // Free memory
-
     free(A);
     free(B);
     free(C);
     free(D);
     free(E);
     free(F);
+    free(AC);
+    free(BD);
+    free(AD);
+    free(BC);
 
     free_memMatrix(Echeck, N);
     free_memMatrix(Fcheck, N);
