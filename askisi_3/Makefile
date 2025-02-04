@@ -1,5 +1,6 @@
 CC=gcc
 CFLAGS=-fopenmp -Wall  -fcf-protection=none -fno-stack-protector -foffload=nvptx-none
+CFLAGS=-fopenmp -Wall  -fcf-protection=none -fno-stack-protector -foffload=nvptx-none
 
 .PHONY: clean
 
@@ -18,5 +19,7 @@ gpu_omp_bad: gpu_omp.c
 	gcc -fopenmp -fcf-protection=none -fno-stack-protector -foffload=nvptx-none -o gpu_omp_bad gpu_omp_bad.c
 
 clean:
+	rm -f gpu_omp.o
+	rm -f cpu_calculations.o
 	rm -f gpu_omp.o
 	rm -f cpu_calculations.o
