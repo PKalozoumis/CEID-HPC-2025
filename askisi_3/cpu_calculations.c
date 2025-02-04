@@ -10,7 +10,7 @@
 
 void cpu_matrix_add(float* AB, float* CD, float* result, int N)
 {
-
+    #pragma omp parallel loop
     for (int i = 0; i < N; i++)
     {
         for (int j = 0; j < N; j++)
@@ -24,7 +24,7 @@ void cpu_matrix_add(float* AB, float* CD, float* result, int N)
 
 void cpu_matrix_sub(float* AB, float* CD, float* result, int N)
 {
-
+    #pragma omp parallel loop
     for (int i = 0; i < N; i++)
     {
         for (int j = 0; j < N; j++)
@@ -38,6 +38,7 @@ void cpu_matrix_sub(float* AB, float* CD, float* result, int N)
 
 void cpu_matrix_mull(float *A, float *B, float* result, int N)
 {
+    #pragma omp parallel loop
     for (int i = 0; i < N; i++)
     {
         for (int j = 0; j < N; j++)
@@ -55,6 +56,8 @@ void cpu_matrix_mull(float *A, float *B, float* result, int N)
 
 void cpu_calculation(float *A, float *B, float *C, float *D, int N, float* E, float* F)
 {
+    printf("Performing CPU calculations...\n");
+    double t = get_wtime();
 
     float *AC, *BD, *AD, *BC;
 
@@ -63,46 +66,28 @@ void cpu_calculation(float *A, float *B, float *C, float *D, int N, float* E, fl
     AD = (float*)malloc(N*N*sizeof(float));
     BC = (float*)malloc(N*N*sizeof(float));
 
-    #pragma omp parallel
-    {
-        #pragma omp single
-        {
-            #pragma omp task
-            cpu_matrix_mull(A, C, AC, N);
+    cpu_matrix_mull(A, C, AC, N);
+    cpu_matrix_mull(B, D, BD, N);
+    cpu_matrix_mull(A, D, AD, N);
+    cpu_matrix_mull(B, C, BC, N);
 
-            #pragma omp task
-            cpu_matrix_mull(B, D, BD, N);
-
-            #pragma omp task
-            cpu_matrix_mull(A, D, AD, N);
-
-            #pragma omp task
-            cpu_matrix_mull(B, C, BC, N);
-        }
-    }
-
-    #pragma omp parallel
-    {
-        #pragma omp single
-        {
-            #pragma omp task
-            cpu_matrix_sub(AC, BD, E, N);
-
-            #pragma omp task
-            cpu_matrix_add(AD, BC, F, N);
-        }
-    }
+    cpu_matrix_sub(AC, BD, E, N);
+    cpu_matrix_add(AD, BC, F, N);
 
     free(AC);
     free(BD);
     free(AD);
     free(BC);
+
+    printf("Total time for CPU calculations: %.03lfs\n\n", get_wtime()-t);
 }
 
 //========================================================================================================
 
 void matrix_comparison(float* cpuE, float* cpuF, float* gpuE, float* gpuF, int N){
-    
+    printf("Comparing results... ");
+    double t = get_wtime();
+
     int error=0;
     double tolerance = 1e-1;
     for(int i=0;i<N;i++){
@@ -123,7 +108,8 @@ void matrix_comparison(float* cpuE, float* cpuF, float* gpuE, float* gpuF, int N
     }else{
         printf("Comparison failed\n");
     }
-    
+
+    printf("Total time for result comparison in CPU: %.03lfs\n\n", get_wtime()-t);
 }
 
 //========================================================================================================
