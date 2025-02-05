@@ -15,14 +15,11 @@ ask1c: ask1c.c
 	${CC} ${CFLAGS} -fopenmp ask1c.c -o ask1c
 
 ask1d: ask1d.c
-	${CC} ${CFLAGS} ask1d.c -o ask1d -fopenmp -L ~/zfp/build/lib/ -I ~/zfp/include/ -lzfp -lm
-
-ask1d_serial: ask1d_serial.c
-	gcc ask1d_serial.c -o ask1d_serial -L ~/zfp/build/lib/ -I ~/zfp/include/ -lzfp -lm
+	${CC} ${CFLAGS} ask1d.c -o ask1d -fopenmp -L ${ZFP_PATH}/build/lib/ -I ${ZFP_PATH}/include/ -lzfp -lm
 
 clean:
-	rm ask1a
-	rm ask1b
-	rm ask1c
-	rm ask1d
-	rm ask1d_serial
+	rm -f ask1a
+	rm -f ask1b
+	rm -f ask1c
+	rm -f ask1d
+	rm -f ask1d_serial

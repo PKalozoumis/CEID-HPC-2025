@@ -15,3 +15,4 @@ askisi_2/weno5/bench_simd
 askisi_2/cuda/cuda
 cpu_calculations.o
 gpu_omp.o
+gpu_omp

@@ -10,53 +10,52 @@ int rank, size;
 
 void MPI_Exscan_omp(int in, int *out)
 {
-	static int prev = 0; // The offset in the file for the entire process
-	static int *process_data;
-	int threadnum = omp_get_thread_num();
+    //These static variables are allocated for the entire process
+    static int prev = 0; // The offset in the file for the entire process
+    static int *process_data;
+    
+    int threadnum = omp_get_thread_num();
 
-	#pragma omp single
-	process_data = (int *)malloc(omp_get_num_threads() * sizeof(int));
+    #pragma omp single
+    process_data = (int *)malloc(omp_get_num_threads() * sizeof(int));
 
-	#pragma omp barrier
-	process_data[threadnum] = in;
+    process_data[threadnum] = in;
 
-	#pragma omp barrier
+    #pragma omp barrier
 
-	// The first thread of the process must take the value that the last thread of the previous process passed on
-	// In the case where this is the first process, there is nothing to take, and we assume prev = 0
-	if (rank != 0 && threadnum == 0)
-	{
-		MPI_Recv(&prev, 1, MPI_INT, rank - 1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-	}
+    // The first thread of the process must take the value that the last thread of the previous process passed on
+    // In the case where this is the first process, there is nothing to take, and we assume prev = 0
+    if (rank != 0 && threadnum == 0)
+    {
+        MPI_Recv(&prev, 1, MPI_INT, rank - 1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
 
-	// Ensure that the value of prev was read by the fist thread of the process
-	#pragma omp barrier
-	*out = prev;
+    // Ensure that the value of prev was read by the fist thread of the process
+    #pragma omp barrier
+    *out = prev;
 
-	// All threads of the same process are aware of the other threads' counts
-	// Each thread knows its inittial position in the file by summing up all the counts before it
-	for (int i = 0; i < threadnum; i++)
-		*out += process_data[i];
+    // All threads of the same process are aware of the other threads' counts
+    // Each thread knows its inittial position in the file by summing up all the counts before it
+    for (int i = 0; i < threadnum; i++)
+        *out += process_data[i];
 
-	// The last thread of the process must send its value to the next process
-	// If I am the last process, then there is nothing to send
-	if (rank != size - 1 && threadnum == omp_get_num_threads() - 1)
-	{
-		int next = *out + process_data[threadnum];
-		MPI_Send(&next, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
-	}
+    // The last thread of the process must send its value to the next process
+    // If I am the last process, then there is nothing to send
+    if (rank != size - 1 && threadnum == omp_get_num_threads() - 1)
+    {
+        int next = *out + process_data[threadnum];
+        MPI_Send(&next, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+    }
 }
 
 //============================================================================================
 
 int main(int argc, char *argv[])
 {
-	int errFlag = 0;
-	int *flags;
-
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
+
 
 	// Argument parsing
 	//============================================================================================
@@ -100,7 +99,7 @@ int main(int argc, char *argv[])
 	if (numThreads > omp_get_num_procs())
 	{
 		if (rank == 0)
-			printf("The maximum threads are %d. Using %d threads.\n", omp_get_num_procs(), omp_get_num_procs());
+			printf("-> The maximum threads are %d. Using %d threads.\n", omp_get_num_procs(), omp_get_num_procs());
 
 		numThreads = omp_get_num_procs();
 	}
@@ -112,8 +111,8 @@ int main(int argc, char *argv[])
 	omp_set_num_threads(numThreads);
 	omp_set_dynamic(0);
 
-	int outdata = 0;
-	int writeSize[numThreads];
+	int threadPosition = 0; //Position where each thread writes in the file
+	int writeSize[numThreads]; //How much each thread writes
 
 	for (int i = 0; i < numThreads; i++)
 		writeSize[i] = arraySize;
@@ -140,9 +139,11 @@ int main(int argc, char *argv[])
 
 	// Parallel region
 	//============================================================================================
-	#pragma omp parallel firstprivate(outdata)
+	int errFlag = 0;
+	
+	#pragma omp parallel firstprivate(threadPosition)
 	{
-		float *data = (float *)malloc(arraySize * sizeof(float));
+		float *data = (float *)malloc(arraySize * sizeof(float)); //Data that each thread will write to the file
 		srand(time(NULL) + rank * omp_get_num_threads() + omp_get_thread_num());
 
 		// Initialize the matrix
@@ -153,7 +154,7 @@ int main(int argc, char *argv[])
 		}
 
 		// Each thread of each process determines its position on the file
-		MPI_Exscan_omp(arraySize, &outdata);
+		MPI_Exscan_omp(arraySize, &threadPosition);
 
 		// Start writing to file
 		//============================================================================================
@@ -161,8 +162,8 @@ int main(int argc, char *argv[])
 		#pragma omp single
 		MPI_Barrier(MPI_COMM_WORLD);
 
-		MPI_Offset offset = base + outdata * sizeof(float);
-		// printf("offset %ld\n",offset);
+		MPI_Offset offset = base + threadPosition * sizeof(float);
+
 		MPI_File_write_at(file, offset, data, writeSize[omp_get_thread_num()], MPI_FLOAT, MPI_STATUS_IGNORE);
 
 		// Read from file
@@ -174,6 +175,7 @@ int main(int argc, char *argv[])
 		float *buffer = (float *)malloc(arraySize * sizeof(float));
 		MPI_File_read_at(file, offset, buffer, arraySize, MPI_FLOAT, MPI_STATUS_IGNORE);
 
+		//Check for errors hile reading
 		for (int i = 0; i < arraySize; i++)
 		{
 			if (buffer[i] != data[i])
@@ -186,8 +188,12 @@ int main(int argc, char *argv[])
 	}
 	// End of parallel region
 
+	MPI_File_close(&file);
+
 	// Error handling
 	//============================================================================================
+	int *flags;
+
 	if (rank == 0)
 	{
 		flags = (int *)malloc(size * sizeof(int));
@@ -202,7 +208,7 @@ int main(int argc, char *argv[])
 		{
 			if (flags[i] == 1)
 			{
-				printf("Verification failed.\n");
+				printf("-> Verification failed.\n");
 				success = 0;
 				break;
 			}
@@ -212,11 +218,10 @@ int main(int argc, char *argv[])
 
 		if (success)
 		{
-			printf("Successful verification.\n");
+			printf("-> Successful verification.\n");
 		}
 	}
 
-	MPI_File_close(&file);
 	MPI_Finalize();
 
 	return 0;

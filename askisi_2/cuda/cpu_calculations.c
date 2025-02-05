@@ -8,9 +8,9 @@
 
 //========================================================================================================
 
-void cpu_matrix_add(float* AB, float* CD, float* result, int N)
+void cpu_matrix_add(float* restrict AB, float* restrict CD, float* restrict result, int N)
 {
-    #pragma omp parallel loop
+    #pragma omp parallel for simd aligned(AB, CD, result: 32) collapse(2)
     for (int i = 0; i < N; i++)
     {
         for (int j = 0; j < N; j++)
@@ -22,9 +22,9 @@ void cpu_matrix_add(float* AB, float* CD, float* result, int N)
 
 //========================================================================================================
 
-void cpu_matrix_sub(float* AB, float* CD, float* result, int N)
+void cpu_matrix_sub(float* restrict AB, float* restrict CD, float* restrict result, int N)
 {
-    #pragma omp parallel loop
+    #pragma omp parallel for simd aligned(AB, CD, result: 32) collapse(2)
     for (int i = 0; i < N; i++)
     {
         for (int j = 0; j < N; j++)
@@ -36,18 +36,18 @@ void cpu_matrix_sub(float* AB, float* CD, float* result, int N)
 
 //========================================================================================================
 
-void cpu_matrix_mull(float *A, float *B, float* result, int N)
+void cpu_matrix_mull(float* restrict A, float* restrict B, float* restrict result, int N)
 {
-    #pragma omp parallel loop
+    #pragma omp parallel for collapse(2)
     for (int i = 0; i < N; i++)
     {
         for (int j = 0; j < N; j++)
         {
-            result[i*N + j] = 0;
+            float temp = 0;
             for (int t = 0; t < N; t++)
-            {
-                result[i*N + j] += A[i * N + t] * B[t * N + j];
-            }
+                temp += A[i * N + t] * B[t * N + j];
+
+            result[i*N + j] = temp;
         }
     }
 }
@@ -57,14 +57,20 @@ void cpu_matrix_mull(float *A, float *B, float* result, int N)
 void cpu_calculation(float *A, float *B, float *C, float *D, int N, float* E, float* F)
 {
     printf("Performing CPU calculations...\n");
+    fflush(stdout);
     double t = get_wtime();
-
+    
     float *AC, *BD, *AD, *BC;
 
-    AC = (float*)malloc(N*N*sizeof(float));
-    BD = (float*)malloc(N*N*sizeof(float));
-    AD = (float*)malloc(N*N*sizeof(float));
-    BC = (float*)malloc(N*N*sizeof(float));
+    if (posix_memalign((void**)&AC, 32, N*N*sizeof(float)) != 0)
+        {perror("Could not allocate aligned memory"); exit(EXIT_FAILURE);}
+    if (posix_memalign((void**)&BD, 32, N*N*sizeof(float)) != 0)
+        {perror("Could not allocate aligned memory"); exit(EXIT_FAILURE);}
+    if (posix_memalign((void**)&AD, 32, N*N*sizeof(float)) != 0)
+        {perror("Could not allocate aligned memory"); exit(EXIT_FAILURE);}
+    if (posix_memalign((void**)&BC, 32, N*N*sizeof(float)) != 0)
+        {perror("Could not allocate aligned memory"); exit(EXIT_FAILURE);}
+        
 
     cpu_matrix_mull(A, C, AC, N);
     cpu_matrix_mull(B, D, BD, N);
@@ -80,12 +86,14 @@ void cpu_calculation(float *A, float *B, float *C, float *D, int N, float* E, fl
     free(BC);
 
     printf("Total time for CPU calculations: %.03lfs\n\n", get_wtime()-t);
+    fflush(stdout);
 }
 
 //========================================================================================================
 
 void matrix_comparison(float* cpuE, float* cpuF, float* gpuE, float* gpuF, int N){
     printf("Comparing results... ");
+    fflush(stdout);
     double t = get_wtime();
 
     int error=0;
@@ -105,21 +113,25 @@ void matrix_comparison(float* cpuE, float* cpuF, float* gpuE, float* gpuF, int N
 
     if(error==0){
         printf("Successful comparison\n");
+        fflush(stdout);
     }else{
         printf("Comparison failed\n");
+        fflush(stdout);
     }
 
     printf("Total time for result comparison in CPU: %.03lfs\n\n", get_wtime()-t);
+    fflush(stdout);
 }
 
 //========================================================================================================
 
-void initialize_matrix(float** matrix, int N)
+void initialize_matrix_(float** matrix, int N)
 {
     srand(time(NULL) + 1000 * omp_get_thread_num());
     // printf("%d\n", omp_get_thread_num());
 
-    *matrix = (float *)malloc(N * N * sizeof(float));
+    if (posix_memalign((void**)matrix, 32, N*N*sizeof(float)) != 0)
+        {perror("Could not allocate aligned memory"); exit(EXIT_FAILURE);}
 
     for (int i = 0; i < N * N; i++)
     {
@@ -156,4 +168,36 @@ void print_matrix(float *matrix, int N)
         }
         printf("\n");
     }
+
+    fflush(stdout);
+}
+
+//========================================================================================================
+
+void initialize_matrices(float** A, float** B, float** C, float** D, int N)
+{
+    printf("Initializing matrices in host...\n");
+    fflush(stdout);
+    double t = get_wtime();
+
+    #pragma omp parallel
+    {
+        #pragma omp single
+        {
+            #pragma omp task
+            initialize_matrix_(A, N);
+
+            #pragma omp task
+            initialize_matrix_(B, N);
+
+            #pragma omp task
+            initialize_matrix_(C, N);
+
+            #pragma omp task
+            initialize_matrix_(D, N);
+        }
+    }
+
+    printf("Total time for parallel initialization: %.03lfs\n\n", get_wtime()-t);
+    fflush(stdout);
 }

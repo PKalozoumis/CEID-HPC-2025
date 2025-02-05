@@ -3,8 +3,9 @@
 #include <omp.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
 
-#define MAX 1000
+#define MAX 10
 #define MIN 1
 
 int rank, size;
@@ -14,14 +15,15 @@ int prev = 0;
 
 void MPI_Exscan_omp(int in, int *out)
 {
+    //These static variables are allocated for the entire process
     static int prev = 0; // The offset in the file for the entire process
     static int *process_data;
+    
     int threadnum = omp_get_thread_num();
 
     #pragma omp single
     process_data = (int *)malloc(omp_get_num_threads() * sizeof(int));
 
-    #pragma omp barrier
     process_data[threadnum] = in;
 
     #pragma omp barrier
@@ -53,24 +55,22 @@ void MPI_Exscan_omp(int in, int *out)
 
 //============================================================================================
 
-void validation(int *indata, int *outdata, int thread)
+void validation(int *indata, int *outdata, int thread_count)
 {
-
-    int indata_share_proc[thread * size];
-    int outdata_share_proc[thread * size];
+    int indata_share_proc[thread_count * size];
+    int outdata_share_proc[thread_count * size];
 
     // Send local indatas to the root process
-    MPI_Gather(indata, thread, MPI_INT, indata_share_proc, thread, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Gather(outdata, thread, MPI_INT, outdata_share_proc, thread, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gather(indata, thread_count, MPI_INT, indata_share_proc, thread_count, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gather(outdata, thread_count, MPI_INT, outdata_share_proc, thread_count, MPI_INT, 0, MPI_COMM_WORLD);
 
     if (rank == 0)
     {
         int error = 0;
         int temp = 0;
 
-        for (int i = 1; i < size * thread; i++)
+        for (int i = 1; i < size * thread_count; i++)
         {
-            
             // Compare the data for each process
             // and its threads
             temp += indata_share_proc[i - 1];
@@ -96,6 +96,42 @@ void validation(int *indata, int *outdata, int thread)
 
 //============================================================================================
 
+void print_ordered(const char* str)
+{
+    int signal = 0;
+
+    #pragma omp single
+    if (rank > 0)
+        MPI_Recv(&signal, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    int num_threads = omp_get_num_threads();
+    int thread_num = omp_get_thread_num();
+
+    static int* flags;
+
+    //Array of flags for the process
+    #pragma omp single
+    {
+        flags = (int*)malloc(num_threads*sizeof(int));
+        memset(flags, 0, num_threads*sizeof(int));
+    }
+    flags[0] = 1;
+
+    while (!flags[thread_num]){};
+
+    printf("%s", str);
+    fflush(stdout);
+
+    //Release the next thread of the process
+    if (thread_num < num_threads-1)
+        flags[thread_num + 1] = 1;
+
+    #pragma omp barrier
+    #pragma omp single
+    if (rank < size - 1)
+        MPI_Send(&signal, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+}
+
 int main(int argc, char *argv[])
 {
     // Initialize the environment, obtain the rank 
@@ -109,8 +145,8 @@ int main(int argc, char *argv[])
     if (rank == 0)
     {
         // Print the number of processes
-        printf("Processes: %d\n", size);
-        printf("Maximum number of processors: %d\n", omp_get_num_procs());
+        printf("-> Processes: %d\n", size);
+        printf("-> Maximum number of processors: %d\n", omp_get_num_procs());
 
         // Give the number of thread each process will have
         do
@@ -120,15 +156,10 @@ int main(int argc, char *argv[])
         } while (threads < 0);
     }
 
-    // Broadcast the number of the thread to all processes
+    // Broadcast the number of threads to all processes
     MPI_Bcast(&threads, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    // Set the number of threads that will be used to execute 
-    // a parallel region 
     omp_set_num_threads(threads);
-
-    // Disable the dynamic adjuctment of the number of thread available
-    // for the execution of a parallel region
     omp_set_dynamic(0);
 
     // Setup the data
@@ -142,7 +173,6 @@ int main(int argc, char *argv[])
         // and each thread
         srand(time(NULL) + rank * omp_get_num_threads() + omp_get_thread_num());
 
-        // Create the data
         int indata = (rand() % (MAX - MIN + 1)) + MIN;
 
         // Array used for data validation
@@ -155,13 +185,18 @@ int main(int argc, char *argv[])
         outdata_share_thread[omp_get_thread_num()] = outdata;
 
         // Print the results
-        printf("Process: %d Thread: %d Indata: %d Result: %d\n", rank, omp_get_thread_num(), indata, outdata);
+        char msg[100];
+        sprintf(msg, "Process: %d Thread: %d Indata: %d Result: %d\n", rank, omp_get_thread_num(), indata, outdata);
+        //printf("Process: %d Thread: %d Indata: %d Result: %d\n", rank, omp_get_thread_num(), indata, outdata);
+        print_ordered(msg);
+        
     }
+
+    MPI_Barrier(MPI_COMM_WORLD);
 
     // Validation the results
     validation(indata_share_thread, outdata_share_thread, threads);
 
-     // Terminate the environment
     MPI_Finalize();
 
     return 0;

@@ -6,10 +6,24 @@
 
 // Define the minimum and the maximum
 // integer of the random number generator
-#define MAX 1000
+#define MAX 10
 #define MIN 1
 
 int rank, size;
+
+void print_ordered(char* str)
+{
+    int signal = 0;
+
+    if (rank > 0)
+        MPI_Recv(&signal, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    printf("%s", str);
+    fflush(stdout);
+
+    if (rank < size - 1)
+        MPI_Send(&signal, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+}
 
 //============================================================================================
 
@@ -59,7 +73,6 @@ void validation(int *indata, int outdata_check)
 
     if (rank == 0)
     {
-
         int validation = 0;
 
         // Checking every process validation
@@ -68,6 +81,7 @@ void validation(int *indata, int outdata_check)
             if (error_gather[i] == 1)
             {
                 validation = 1;
+                break;
             }
         }
 
@@ -95,7 +109,7 @@ int main(int argc, char *argv[])
 
     // Print the total number of processes
     if (rank == 0)
-        printf("Processes: %d\n", size);
+        printf("Processes: %d\n\n", size);
 
     // Initialize random number generator,
     // unique for each process
@@ -109,12 +123,14 @@ int main(int argc, char *argv[])
     MPI_Exscan_pt2pt(&indata, &outdata, rank);
 
     // Print the result of our Excan function
-    printf("Process: %d Indata: %d Result: %d\n", rank, indata, outdata);
+    char msg[100];
+    sprintf(msg, "Process: %d Indata: %d Result: %d\n", rank, indata, outdata);
+    print_ordered(msg);
 
     // Synchronization with Barrier
     MPI_Barrier(MPI_COMM_WORLD);
 
-    // Validation the results
+    // Validation of the results
     validation(&indata, outdata);
 
     // Terminate the environment

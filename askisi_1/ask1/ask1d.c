@@ -55,12 +55,6 @@ size_t compress_array(float *data, size_t N, unsigned char **compressedData)
 {
 	// int precision: Affects truncation. Default is 24 bits. Cannot exceed 32 bits for floats
 	// double tolerance: The accuracy. How close the compressed data is to the original. Controls the MAX ERROR allowed during the compression process. Default is 0
-	/*
-	  for (int i = 0; i < N; i++)
-	  {
-		printf("original data[%d]: %f\n", i, data[i]);
-	  }
-	*/
 	zfp_type type = zfp_type_float; // Specify float type
 	zfp_field *field = zfp_field_3d(data, type, N, N, N);
 	zfp_stream *zfp = zfp_stream_open(NULL);
@@ -135,15 +129,42 @@ void decompress_array(unsigned char *compressedData, size_t compressedSize, floa
 		fprintf(stderr, "ZFP decompression failed\n");
 		exit(EXIT_FAILURE);
 	}
-	/*
-	  for (int i = 0; i < N; i++) // Print first 10 values for quick verification
-	  {
-		printf("Decompressed data[%d]: %f\n", i, originalData[i]);
-	  }
-	*/
+
 	zfp_field_free(field);
 	zfp_stream_close(zfp);
 	stream_close(stream);
+}
+
+//================================================================
+
+void average_compressed_size(size_t size_bytes)
+{
+	static int *process_data;
+	int thread_num = omp_get_thread_num();
+	int num_threads = omp_get_num_threads();
+
+	#pragma omp single
+	process_data = (int *)malloc(num_threads * sizeof(int));
+
+	#pragma omp barrier
+	process_data[thread_num] = size_bytes;
+
+	#pragma omp barrier
+
+	if (thread_num == num_threads - 1)
+	{
+		int local_sum = 0, sum = 0;
+
+		for (int i = 0; i < num_threads; i++)
+			local_sum += process_data[i];
+
+		MPI_Reduce(&local_sum, &sum, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+
+		if(rank==0){
+			float avgSize = (float)sum / (size*num_threads);
+			printf("Average Compression Size: %0.2f bytes\n", avgSize);
+		}	
+	}
 }
 
 //================================================================
@@ -206,7 +227,8 @@ int main(int argc, char *argv[])
 	}
 
 	//============================================================================================
-	printf("Size: %ld\n", arraySize * sizeof(float));
+	if(rank==0)
+	printf("Array size: %ld bytes\n", arraySize * sizeof(float));
 
 	uint8_t totalThreads = numThreads * size; // Threads across all processes
 
@@ -259,8 +281,8 @@ int main(int argc, char *argv[])
 		//============================================================================================
 		unsigned char *compressedData = NULL;
 		size_t compressedSize = compress_array(data, N, &compressedData);
-
-		printf("compressedSize: %ld\n", compressedSize);
+		
+		average_compressed_size(compressedSize);
 
 		writeSize[threadNum] = compressedSize;
 
@@ -280,9 +302,6 @@ int main(int argc, char *argv[])
 			MPI_File_write_at(file, header_offset, &writeSize, numThreads, MPI_INT, MPI_STATUS_IGNORE);
 			base = 1 + totalThreads * sizeof(int);
 		}
-
-		// printf("Base: %ld\n", base);
-		// printf("Start at: %d\n", outdata);
 
 		// Start writing to file
 		//============================================================================================
@@ -345,7 +364,7 @@ int main(int argc, char *argv[])
 		{
 			if (flags[i] == 1)
 			{
-				printf("Verification failed.\n");
+				printf("-> Verification failed.\n");
 				success = 0;
 				break;
 			}
@@ -355,7 +374,7 @@ int main(int argc, char *argv[])
 
 		if (success)
 		{
-			printf("Successful verification.\n");
+			printf("-> Successful verification.\n");
 		}
 	}
 

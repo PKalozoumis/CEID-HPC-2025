@@ -132,31 +132,8 @@ int main(int argc, char **argv)
 
     // Initialize matrices in host
     //===========================================================================
-
     float *A, *B, *C, *D;
-
-    printf("Initializing matrices in host...\n");
-    double t = get_wtime();
-    
-    #pragma omp parallel
-    {
-        #pragma omp single
-        {
-            #pragma omp task
-            initialize_matrix(&A, N);
-
-            #pragma omp task
-            initialize_matrix(&B, N);
-
-            #pragma omp task
-            initialize_matrix(&C, N);
-
-            #pragma omp task
-            initialize_matrix(&D, N);
-        }
-    }
-
-    printf("Total time for parallel initialization: %.03lfs\n\n", get_wtime()-t);
+    initialize_matrices(&A, &B, &C, &D, N);
 
     int arraySize = N * N * sizeof(float);
 
@@ -166,8 +143,10 @@ int main(int argc, char **argv)
 
     //Start CPU calculations
     //===========================================================================
-    float* Ecpu = (float*)malloc(arraySize);
-    float* Fcpu = (float*)malloc(arraySize);
+    float *Ecpu, *Fcpu;
+
+    posix_memalign((void**)&Ecpu, 32, arraySize);
+    posix_memalign((void**)&Fcpu, 32, arraySize);
 
     cpu_calculation(A, B, C, D, N, Ecpu, Fcpu);
 
