@@ -44,6 +44,8 @@ void cpu_matrix_mull(float* restrict A, float* restrict B, float* restrict resul
         for (int j = 0; j < N; j++)
         {
             float temp = 0;
+
+            #pragma omp simd
             for (int t = 0; t < N; t++)
                 temp += A[i * N + t] * B[t * N + j];
 
@@ -54,7 +56,7 @@ void cpu_matrix_mull(float* restrict A, float* restrict B, float* restrict resul
 
 //========================================================================================================
 
-void cpu_calculation(float *A, float *B, float *C, float *D, int N, float* E, float* F)
+double cpu_calculation(float *A, float *B, float *C, float *D, int N, float* E, float* F)
 {
     printf("Performing CPU calculations...\n");
     fflush(stdout);
@@ -85,13 +87,16 @@ void cpu_calculation(float *A, float *B, float *C, float *D, int N, float* E, fl
     free(AD);
     free(BC);
 
-    printf("Total time for CPU calculations: %.03lfs\n\n", get_wtime()-t);
+    t = get_wtime()-t;
+    printf("Total time for CPU calculations: %.03lfs\n\n", t);
     fflush(stdout);
+
+    return t;
 }
 
 //========================================================================================================
 
-void matrix_comparison(float* cpuE, float* cpuF, float* gpuE, float* gpuF, int N){
+double matrix_comparison(float* cpuE, float* cpuF, float* gpuE, float* gpuF, int N){
     printf("Comparing results... ");
     fflush(stdout);
     double t = get_wtime();
@@ -119,8 +124,11 @@ void matrix_comparison(float* cpuE, float* cpuF, float* gpuE, float* gpuF, int N
         fflush(stdout);
     }
 
-    printf("Total time for result comparison in CPU: %.03lfs\n\n", get_wtime()-t);
+    t = get_wtime()-t;
+    printf("Total time for result comparison in CPU: %.03lfs\n\n", t);
     fflush(stdout);
+
+    return t;
 }
 
 //========================================================================================================
@@ -174,7 +182,7 @@ void print_matrix(float *matrix, int N)
 
 //========================================================================================================
 
-void initialize_matrices(float** A, float** B, float** C, float** D, int N)
+double initialize_matrices(float** A, float** B, float** C, float** D, int N)
 {
     printf("Initializing matrices in host...\n");
     fflush(stdout);
@@ -198,6 +206,9 @@ void initialize_matrices(float** A, float** B, float** C, float** D, int N)
         }
     }
 
-    printf("Total time for parallel initialization: %.03lfs\n\n", get_wtime()-t);
+    t = get_wtime()-t;
+    printf("Total time for parallel initialization: %.03lfs\n\n", t);
     fflush(stdout);
+
+    return t;
 }

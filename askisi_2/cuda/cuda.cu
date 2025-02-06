@@ -3,9 +3,14 @@
 #include <cuda.h>
 #include "cpu_calculations.h"
 
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 //========================================================================================================
 
-void gpu_time()
+double gpu_time()
 {
     static cudaEvent_t start, stop;
 
@@ -15,6 +20,8 @@ void gpu_time()
         cudaEventCreate(&stop);
 
         cudaEventRecord(start, 0);
+
+        return 0;
     }
     else //Stop measuring
     {
@@ -30,6 +37,8 @@ void gpu_time()
         cudaEventDestroy(stop);
 
         start = stop = NULL;
+
+        return milliseconds/1000.0;
     }
 }
 
@@ -113,7 +122,7 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    if (argc == 3)
+    if (argc >= 3)
     {
         //Mode 0 -> Multiple kernels
         //Mode 1 -> Single kernel
@@ -130,10 +139,33 @@ int main(int argc, char **argv)
 
     int N = atoi(argv[1]);
 
+    //Open shared memory from Python driver program
+    //===========================================================================
+
+    int fd;
+    double* shmem = NULL;
+    
+    if (argc == 4) //4th argument will be the shared memory name
+    {
+        fd = shm_open(argv[3], O_RDWR, 0);
+
+        if (fd == -1)
+            {perror("Could not open shared memory"); exit(1);}
+
+        shmem = (double*)mmap(NULL, 6*sizeof(double), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
+        if (close(fd) == -1)
+            {perror("Could not close file descriptor"); exit(1);}
+
+        if (shmem == MAP_FAILED)
+            {perror("mmap failure"); exit(1);}
+    }
+
     // Initialize matrices in host
     //===========================================================================
     float *A, *B, *C, *D;
-    initialize_matrices(&A, &B, &C, &D, N);
+    double t = initialize_matrices(&A, &B, &C, &D, N);
+    if (shmem != NULL) shmem[0] = t;
 
     int arraySize = N * N * sizeof(float);
 
@@ -148,7 +180,8 @@ int main(int argc, char **argv)
     posix_memalign((void**)&Ecpu, 32, arraySize);
     posix_memalign((void**)&Fcpu, 32, arraySize);
 
-    cpu_calculation(A, B, C, D, N, Ecpu, Fcpu);
+    t = cpu_calculation(A, B, C, D, N, Ecpu, Fcpu);
+    if (shmem != NULL) shmem[1] = t;
 
     //Initialize GPU memory
     //===========================================================================
@@ -201,7 +234,8 @@ int main(int argc, char **argv)
         sub_matrix<<<grid, block>>>(devE, devAC, devBD, N);
         add_matrix<<<grid, block>>>(devF, devAD, devBC, N);
 
-        gpu_time();
+        t = gpu_time();
+        if (shmem != NULL) shmem[2] = t;
 
         cudaFree(devAC);
         cudaFree(devBD);
@@ -211,7 +245,8 @@ int main(int argc, char **argv)
         //Compare results for multiple kernels
         cudaMemcpy(E, devE, arraySize, cudaMemcpyDeviceToHost);
         cudaMemcpy(F, devF, arraySize, cudaMemcpyDeviceToHost);
-        matrix_comparison(Ecpu, Fcpu, E, F, N);
+        t = matrix_comparison(Ecpu, Fcpu, E, F, N);
+        if (shmem != NULL) shmem[3] = t;
     }
 
     //Start single kernel calculations
@@ -221,12 +256,14 @@ int main(int argc, char **argv)
 
         gpu_time();
         single_kernel_calculations<<<grid, block>>>(devA, devB, devC, devD, devE, devF, N);
-        gpu_time();
+        t = gpu_time();
+        if (shmem != NULL) shmem[4] = t;
 
         //Compare results for single kernel
         cudaMemcpy(E, devE, arraySize, cudaMemcpyDeviceToHost);
         cudaMemcpy(F, devF, arraySize, cudaMemcpyDeviceToHost);
-        matrix_comparison(Ecpu, Fcpu, E, F, N);
+        t = matrix_comparison(Ecpu, Fcpu, E, F, N);
+        if (shmem != NULL) shmem[5] = t;
     }
 
     //Free memory
@@ -244,4 +281,10 @@ int main(int argc, char **argv)
     free(F);
     free(Ecpu);
     free(Fcpu);
+
+    if (shmem != NULL)
+    {
+        if (munmap(shmem, sizeof(double)) == -1)
+            {perror("unmap failure"); exit(1);}
+    }
 }
