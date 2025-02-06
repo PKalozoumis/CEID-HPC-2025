@@ -5,7 +5,7 @@
 #include <time.h>
 #include <string.h>
 
-#define MAX 10
+#define MAX 9
 #define MIN 1
 
 int rank, size;
@@ -96,6 +96,7 @@ void validation(int *indata, int *outdata, int thread_count)
 
 //============================================================================================
 
+//It just prints results in the correct order
 void print_ordered(const char* str)
 {
     int signal = 0;
@@ -107,16 +108,17 @@ void print_ordered(const char* str)
     int num_threads = omp_get_num_threads();
     int thread_num = omp_get_thread_num();
 
+    //Flags tell which process is allowed to proceed
     static int* flags;
 
     //Array of flags for the process
     #pragma omp single
-    {
-        flags = (int*)malloc(num_threads*sizeof(int));
-        memset(flags, 0, num_threads*sizeof(int));
-    }
+    flags = (int*)calloc(num_threads, sizeof(int));
+
+    //First thread is free to proceed
     flags[0] = 1;
 
+    //Busy wait until the previous thread releases you
     while (!flags[thread_num]){};
 
     printf("%s", str);
@@ -126,10 +128,16 @@ void print_ordered(const char* str)
     if (thread_num < num_threads-1)
         flags[thread_num + 1] = 1;
 
+    //Once all threads are done, release the next process
     #pragma omp barrier
     #pragma omp single
-    if (rank < size - 1)
-        MPI_Send(&signal, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+    {
+        printf("\n");
+        fflush(stdout);
+
+        if (rank < size - 1)
+            MPI_Ssend(&signal, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+    }
 }
 
 int main(int argc, char *argv[])
@@ -142,22 +150,16 @@ int main(int argc, char *argv[])
 
     int threads;
 
-    if (rank == 0)
+    if (argc == 1)
     {
-        // Print the number of processes
-        printf("-> Processes: %d\n", size);
-        printf("-> Maximum number of processors: %d\n", omp_get_num_procs());
+        if (rank == 1)
+            printf("Give num of threads.\n");
 
-        // Give the number of thread each process will have
-        do
-        {
-            printf("How many threads should each process have (Give a intenger number): ");
-            scanf("%d", &threads);
-        } while (threads < 0);
+        MPI_Finalize();
+        return 0;
     }
 
-    // Broadcast the number of threads to all processes
-    MPI_Bcast(&threads, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    threads = atoi(argv[1]);
 
     omp_set_num_threads(threads);
     omp_set_dynamic(0);
@@ -186,7 +188,7 @@ int main(int argc, char *argv[])
 
         // Print the results
         char msg[100];
-        sprintf(msg, "Process: %d Thread: %d Indata: %d Result: %d\n", rank, omp_get_thread_num(), indata, outdata);
+        sprintf(msg, "Process: %.02d Thread: %.02d Indata: %d Result: %d\n", rank, omp_get_thread_num(), indata, outdata);
         //printf("Process: %d Thread: %d Indata: %d Result: %d\n", rank, omp_get_thread_num(), indata, outdata);
         print_ordered(msg);
         

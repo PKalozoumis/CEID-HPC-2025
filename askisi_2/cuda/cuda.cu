@@ -114,7 +114,10 @@ __global__ void sub_matrix(float *R, float *M1, float *M2, int N)
 
 int main(int argc, char **argv)
 {
-    int single_kernel_mode = 0;
+    uint8_t MODE_CPU = 1<<0;
+    uint8_t MODE_GPU_MULTIPLE = 1<<1; //Test multiple kernel implementation
+    uint8_t MODE_GPU_SINGLE = 1<<2; //Test single kernel implementation
+    uint8_t mode = MODE_CPU | MODE_GPU_SINGLE;
 
     if (argc == 1)
     {
@@ -124,17 +127,13 @@ int main(int argc, char **argv)
 
     if (argc >= 3)
     {
-        //Mode 0 -> Multiple kernels
-        //Mode 1 -> Single kernel
-        //Mode 2 -> Run both
+        mode = atoi(argv[2]);
 
-        if (strcmp(argv[2], "0") != 0 && strcmp(argv[2], "1") != 0 && strcmp(argv[2], "2") != 0)
+        if (mode > 7)
         {
-            printf("Invalid mode %s\n", argv[2]);
-            return 0;
+            printf("Invalid mode. Must be in 0-7\n");
+            exit(1);
         }
-
-        single_kernel_mode = atoi(argv[2]);
     }
 
     int N = atoi(argv[1]);
@@ -173,6 +172,7 @@ int main(int argc, char **argv)
     dim3 block(blockSize, blockSize); // 16x16 = 256 threads per block. A multiple of 32, the warp size
     dim3 grid((N + blockSize - 1) / blockSize, (N + blockSize - 1) / blockSize);
 
+
     //Start CPU calculations
     //===========================================================================
     float *Ecpu, *Fcpu;
@@ -180,8 +180,11 @@ int main(int argc, char **argv)
     posix_memalign((void**)&Ecpu, 32, arraySize);
     posix_memalign((void**)&Fcpu, 32, arraySize);
 
-    t = cpu_calculation(A, B, C, D, N, Ecpu, Fcpu);
-    if (shmem != NULL) shmem[1] = t;
+    if (mode & MODE_CPU)
+    {
+        t = cpu_calculation(A, B, C, D, N, Ecpu, Fcpu);
+        if (shmem != NULL) shmem[1] = t;
+    }
 
     //Initialize GPU memory
     //===========================================================================
@@ -199,7 +202,7 @@ int main(int argc, char **argv)
     cudaMemcpy(devC, C, arraySize, cudaMemcpyHostToDevice);
     cudaMemcpy(devD, D, arraySize, cudaMemcpyHostToDevice);
 
-    if (single_kernel_mode != 1)
+    if (mode & MODE_GPU_SINGLE)
     {
         cudaMalloc(&devAC, arraySize);
         cudaMalloc(&devBD, arraySize);
@@ -220,7 +223,7 @@ int main(int argc, char **argv)
     printf("Performing GPU calculations...\n\n");
 
     //Start multiple kernel calculations
-    if (single_kernel_mode != 1)
+    if (mode & MODE_GPU_MULTIPLE)
     {
         printf("> Running version with multiple kernels...\n-----------------------------------------------------\n");
 
@@ -242,15 +245,18 @@ int main(int argc, char **argv)
         cudaFree(devAD);
         cudaFree(devBC);
 
-        //Compare results for multiple kernels
-        cudaMemcpy(E, devE, arraySize, cudaMemcpyDeviceToHost);
-        cudaMemcpy(F, devF, arraySize, cudaMemcpyDeviceToHost);
-        t = matrix_comparison(Ecpu, Fcpu, E, F, N);
-        if (shmem != NULL) shmem[3] = t;
+        if (mode & MODE_CPU)
+        {
+            //Compare results for multiple kernels
+            cudaMemcpy(E, devE, arraySize, cudaMemcpyDeviceToHost);
+            cudaMemcpy(F, devF, arraySize, cudaMemcpyDeviceToHost);
+            t = matrix_comparison(Ecpu, Fcpu, E, F, N);
+            if (shmem != NULL) shmem[3] = t;
+        }
     }
 
     //Start single kernel calculations
-    if (single_kernel_mode != 0)
+    if (mode & MODE_GPU_SINGLE)
     {
         printf("> Running version with single kernel...\n-----------------------------------------------------\n");
 
@@ -259,11 +265,14 @@ int main(int argc, char **argv)
         t = gpu_time();
         if (shmem != NULL) shmem[4] = t;
 
-        //Compare results for single kernel
-        cudaMemcpy(E, devE, arraySize, cudaMemcpyDeviceToHost);
-        cudaMemcpy(F, devF, arraySize, cudaMemcpyDeviceToHost);
-        t = matrix_comparison(Ecpu, Fcpu, E, F, N);
-        if (shmem != NULL) shmem[5] = t;
+        if (mode & MODE_CPU)
+        {
+            //Compare results for single kernel
+            cudaMemcpy(E, devE, arraySize, cudaMemcpyDeviceToHost);
+            cudaMemcpy(F, devF, arraySize, cudaMemcpyDeviceToHost);
+            t = matrix_comparison(Ecpu, Fcpu, E, F, N);
+            if (shmem != NULL) shmem[5] = t;
+        }
     }
 
     //Free memory

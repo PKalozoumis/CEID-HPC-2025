@@ -3,7 +3,7 @@ CFLAGS ?=
 
 .PHONY: clean
 
-all: ask1a ask1b ask1c ask1d ask1d_serial
+all: ask1a ask1b ask1c ask1d
 
 ask1a: ask1a.c
 	${CC} ${CFLAGS} ask1a.c -o ask1a
@@ -22,4 +22,3 @@ clean:
 	rm -f ask1b
 	rm -f ask1c
 	rm -f ask1d
-	rm -f ask1d_serial

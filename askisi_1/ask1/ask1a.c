@@ -6,7 +6,7 @@
 
 // Define the minimum and the maximum
 // integer of the random number generator
-#define MAX 10
+#define MAX 9
 #define MIN 1
 
 int rank, size;
@@ -22,7 +22,7 @@ void print_ordered(char* str)
     fflush(stdout);
 
     if (rank < size - 1)
-        MPI_Send(&signal, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
+        MPI_Ssend(&signal, 1, MPI_INT, rank + 1, 0, MPI_COMM_WORLD);
 }
 
 //============================================================================================
@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 
     // Print the result of our Excan function
     char msg[100];
-    sprintf(msg, "Process: %d Indata: %d Result: %d\n", rank, indata, outdata);
+    sprintf(msg, "Process: %.02d Indata: %d Result: %d\n", rank, indata, outdata);
     print_ordered(msg);
 
     // Synchronization with Barrier
