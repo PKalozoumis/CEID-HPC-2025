@@ -202,7 +202,7 @@ int main(int argc, char **argv)
     cudaMemcpy(devC, C, arraySize, cudaMemcpyHostToDevice);
     cudaMemcpy(devD, D, arraySize, cudaMemcpyHostToDevice);
 
-    if (mode & MODE_GPU_SINGLE)
+    if (mode & MODE_GPU_MULTIPLE)
     {
         cudaMalloc(&devAC, arraySize);
         cudaMalloc(&devBD, arraySize);
