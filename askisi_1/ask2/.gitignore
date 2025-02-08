@@ -1,0 +1,5 @@
+venv/
+*.xlsx
+*.png
+*.bin
+__pycache__
