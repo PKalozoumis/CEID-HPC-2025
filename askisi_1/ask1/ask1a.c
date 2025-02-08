@@ -27,7 +27,7 @@ void print_ordered(char* str)
 
 //============================================================================================
 
-void MPI_Exscan_pt2pt(int *in, int *out, int rank)
+void MPI_Exscan_pt2pt(int* in, int* out)
 {
     int prev = 0;
 
@@ -53,7 +53,6 @@ void MPI_Exscan_pt2pt(int *in, int *out, int rank)
 
 void validation(int *indata, int outdata_check)
 {
-
     int outdata = 0;
     int error = 0;
 
@@ -88,11 +87,11 @@ void validation(int *indata, int outdata_check)
         // Print the result validation
         if (validation == 1)
         {
-            printf("-> Unsuccessful verification\n");
+            printf("\nVerification failed\n");
         }
         else
         {
-            printf("-> Successful verification\n");
+            printf("\nSuccessful verification\n");
         }
     }
 }
@@ -120,7 +119,7 @@ int main(int argc, char *argv[])
     int outdata = 0;
 
     // Implementation of Exscan function
-    MPI_Exscan_pt2pt(&indata, &outdata, rank);
+    MPI_Exscan_pt2pt(&indata, &outdata);
 
     // Print the result of our Excan function
     char msg[100];

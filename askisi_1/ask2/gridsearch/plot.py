@@ -8,13 +8,12 @@ import numpy as np
 from matplotlib import pyplot as plt
 import math
 
-samples = 20000
+samples = 1500
 features = 10
 v1 = 16
 v2 = 32
 
 processes = [2, 4, 6, 8, 10, 12, 14, 16]
-#processes = [4, 6]
 
 times = np.zeros((len(processes), 4))
 
@@ -38,9 +37,12 @@ for i, proc in enumerate(processes):
 df = pd.DataFrame(times, columns=["Serial", "MPI Master-Worker", "MPI Futures", "Multiprocessing Pool"], index=processes)
 df.to_excel("time.xlsx", index_label="Processes", index=True)
 
+colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red']
+
 fig, ax = plt.subplots()
+ax.set_prop_cycle(color=colors)
 ax.plot(processes, times, linewidth=2)
-ax.set_xticks(range(2, processes[-1]+1, 2))
+ax.set_xticks(range(processes[0], processes[-1]+1))
 ax.set_yticks(np.arange(0, math.ceil(np.max(times))+1, 2))
 fig.suptitle("Grid Search Time For Various Implementations")
 ax.set_xlabel("Processes", fontsize=13)
@@ -49,3 +51,22 @@ ax.legend(["Serial", "MPI Master-Worker", "MPI Futures", "Multiprocessing Pool"]
 ax.tick_params(labelsize=10)
 ax.grid(color="b", alpha=0.25)
 fig.savefig("plot.png")
+plt.show(block=False)
+
+#Calculate speedup
+for col in range(1,4):
+    times[:, col] = times[:, 0] / times[:, col]
+
+fig, ax = plt.subplots()
+ax.set_prop_cycle(color=colors[1:])
+ax.plot(processes, times[:,1:], linewidth=2)
+ax.set_xticks(range(processes[0], processes[-1]+1))
+ax.set_yticks(np.arange(0, math.ceil(np.max(times))+1, 2))
+fig.suptitle("Speedup For Various Implementations")
+ax.set_xlabel("N", fontsize=13)
+ax.set_ylabel("Speedup", fontsize=13)
+ax.legend(["MPI Master-Worker", "MPI Futures", "Multiprocessing Pool"])
+ax.tick_params(labelsize=10)
+ax.grid(color="b", alpha=0.25)
+fig.savefig("speedup.png")
+plt.show()

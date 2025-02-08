@@ -16,3 +16,4 @@ askisi_2/cuda/cuda
 cpu_calculations.o
 gpu_omp.o
 gpu_omp
+*Zone.Identifier

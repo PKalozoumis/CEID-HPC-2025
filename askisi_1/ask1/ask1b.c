@@ -85,11 +85,11 @@ void validation(int *indata, int *outdata, int thread_count)
         // Print the result of the validation
         if (error == 1)
         {
-            printf("-> Unsuccessful verification\n");
+            printf("Verification failed\n");
         }
         else
         {
-            printf("-> Successful verification\n");
+            printf("Successful verification\n");
         }
     }
 }
@@ -160,6 +160,11 @@ int main(int argc, char *argv[])
     }
 
     threads = atoi(argv[1]);
+
+    if (rank == 0)
+    {
+        printf("Processes: %d\nThreads: %d\n\n", size, threads);
+    }
 
     omp_set_num_threads(threads);
     omp_set_dynamic(0);

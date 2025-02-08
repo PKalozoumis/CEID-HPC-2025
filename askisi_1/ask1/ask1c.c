@@ -129,14 +129,18 @@ int main(int argc, char *argv[])
 	//================================================================
 	if (rank == 0)
 	{
-		MPI_File_write_at(file, base, &totalThreads, 1, MPI_BYTE, MPI_STATUS_IGNORE);
+		//Write the number of processes and threads per process
+		//Each takes up one byte
+		MPI_File_write_at(file, base, &size, 1, MPI_BYTE, MPI_STATUS_IGNORE);
+		MPI_File_write_at(file, base+1, &numThreads, 1, MPI_BYTE, MPI_STATUS_IGNORE);
 	}
 
 	MPI_Barrier(MPI_COMM_WORLD);
 
-	MPI_Offset offset = sizeof(uint8_t) + numThreads * sizeof(int) * rank;
+	//Write how many bytes each thread wrote
+	MPI_Offset offset = 2*sizeof(uint8_t) + numThreads * rank * sizeof(int);
 	MPI_File_write_at(file, offset, &writeSize, numThreads, MPI_INT, MPI_STATUS_IGNORE);
-	base += 1 + totalThreads * sizeof(int);
+	base += 2*sizeof(uint8_t) + totalThreads * sizeof(int);
 
 	// Parallel region
 	//============================================================================================
@@ -176,7 +180,7 @@ int main(int argc, char *argv[])
 		float *buffer = (float *)malloc(arraySize * sizeof(float));
 		MPI_File_read_at(file, offset, buffer, arraySize, MPI_FLOAT, MPI_STATUS_IGNORE);
 
-		//Check for errors hile reading
+		//Check for errors while reading
 		for (int i = 0; i < arraySize; i++)
 		{
 			if (buffer[i] != data[i])
@@ -209,7 +213,7 @@ int main(int argc, char *argv[])
 		{
 			if (flags[i] == 1)
 			{
-				printf("-> Verification failed.\n");
+				printf("Verification failed\n");
 				success = 0;
 				break;
 			}
@@ -219,7 +223,7 @@ int main(int argc, char *argv[])
 
 		if (success)
 		{
-			printf("-> Successful verification.\n");
+			printf("Successful verification\n");
 		}
 	}
 

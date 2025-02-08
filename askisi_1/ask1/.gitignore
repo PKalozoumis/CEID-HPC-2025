@@ -8,3 +8,4 @@ ask1d_zstd.c
 io*
 *btr
 *.bin
+reader.*

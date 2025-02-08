@@ -26,12 +26,19 @@ int main(int argc, char **argv)
     float *A, *B, *C, *D;
     initialize_matrices(&A, &B, &C, &D, N);
 
+    int arraySize = N*N*sizeof(float);
+
+    //Start CPU calculations
     //===========================================================================
+    float* Ecpu = (float*)malloc(arraySize);
+    float* Fcpu = (float*)malloc(arraySize);
 
-    int arraySize = N*N*sizeof(float);;
+    cpu_calculation(A, B, C, D, N, Ecpu, Fcpu);
 
-    float *E = (float *)malloc(arraySize);
-    float *F = (float *)malloc(arraySize);
+    //Start GPU caculations
+    //===========================================================================
+    float *E = (float *)calloc(N*N, sizeof(float));
+    float *F = (float *)calloc(N*N, sizeof(float));
 
     printf("Performing GPU calculations...\n");
     fflush(stdout);
@@ -62,15 +69,8 @@ int main(int argc, char **argv)
     printf("Total time for GPU calculations: %.03lfs\n\n", get_wtime() - t);
     fflush(stdout);
 
-    //print_matrix(E, N);
-
     // Verify results
     //-------------------------------------------------------------------------------
-    float* Ecpu = (float*)malloc(arraySize);
-    float* Fcpu = (float*)malloc(arraySize);
-
-    cpu_calculation(A, B, C, D, N, Ecpu, Fcpu);
-    
     matrix_comparison(Ecpu,Fcpu,E,F,N);
 
     // Free memory

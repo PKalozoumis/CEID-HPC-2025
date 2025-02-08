@@ -151,6 +151,7 @@ void average_compressed_size(size_t size_bytes)
 
 	#pragma omp barrier
 
+	//Each process calculates the sum of compressed matrix sizes for its threads
 	if (thread_num == num_threads - 1)
 	{
 		int local_sum = 0, sum = 0;
@@ -158,6 +159,7 @@ void average_compressed_size(size_t size_bytes)
 		for (int i = 0; i < num_threads; i++)
 			local_sum += process_data[i];
 
+		//All process-level sums are summed up and sent to the root
 		MPI_Reduce(&local_sum, &sum, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
 		if(rank==0){
@@ -249,7 +251,10 @@ int main(int argc, char *argv[])
 	//============================================================================================
 	if (rank == 0)
 	{
-		MPI_File_write_at(file, base, &totalThreads, 1, MPI_BYTE, MPI_STATUS_IGNORE);
+		//Write the number of processes and threads per process
+		//Each takes up one byte
+		MPI_File_write_at(file, base, &size, 1, MPI_BYTE, MPI_STATUS_IGNORE);
+		MPI_File_write_at(file, base+1, &numThreads, 1, MPI_BYTE, MPI_STATUS_IGNORE);
 	}
 
 	#pragma omp barrier
@@ -298,9 +303,9 @@ int main(int argc, char *argv[])
 		// One thread from each process must write in the header how many bytes each thread will write
 		#pragma omp single
 		{
-			MPI_Offset header_offset = 1 + numThreads * sizeof(int) * rank;
+			MPI_Offset header_offset = 2*sizeof(uint8_t) + numThreads * sizeof(int) * rank;
 			MPI_File_write_at(file, header_offset, &writeSize, numThreads, MPI_INT, MPI_STATUS_IGNORE);
-			base = 1 + totalThreads * sizeof(int);
+			base = 2*sizeof(uint8_t) + totalThreads * sizeof(int);
 		}
 
 		// Start writing to file
@@ -364,7 +369,7 @@ int main(int argc, char *argv[])
 		{
 			if (flags[i] == 1)
 			{
-				printf("-> Verification failed.\n");
+				printf("Verification failed.\n");
 				success = 0;
 				break;
 			}
@@ -374,7 +379,7 @@ int main(int argc, char *argv[])
 
 		if (success)
 		{
-			printf("-> Successful verification.\n");
+			printf("Successful verification.\n");
 		}
 	}
 
