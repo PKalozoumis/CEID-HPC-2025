@@ -69,7 +69,7 @@ if __name__ == "__main__":
     results = None
     
     # Run Grid Search with MPI Features
-    with MPICommExecutor() as executor:
+    with MPICommExecutor(root=0) as executor:
 
         if rank==0:
              t = MPI.Wtime()
