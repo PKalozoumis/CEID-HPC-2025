@@ -97,7 +97,7 @@ class Master:
 
     #--------------------------------------------------------------------
 
-    #Waits for all the workers that currently have received work to finish
+    #Waits for a workers that currently have received work to finish
     #Once someone finishes, we retrieve Result
     #...and we give him more work, if there's work left in the queue
     def get_results(self) -> list[Result]:
@@ -178,44 +178,47 @@ if __name__ == "__main__":
     parser.add_argument("-v2", action="store", type=int, default=32, help="Large value for neurons")
     args = parser.parse_args()
 
-    if rank == 0:
-        print(f"Using MPI master-worker model with {size} processes...\n\nSamples: {args.ns}\nFeatures: {args.nf}\nTesting values: [{args.v1}, {args.v2}]")
-        sys.stdout.flush()
+    if size > 1:
+        if rank == 0:
+            print(f"Using MPI master-worker model with {size} processes...\n\nSamples: {args.ns}\nFeatures: {args.nf}\nTesting values: [{args.v1}, {args.v2}]")
+            sys.stdout.flush()
 
-    #Set up parameters for Grid Search
-    X, y = make_classification(n_samples=args.ns, random_state=42, n_features=args.nf, n_informative=args.nf, n_redundant=0, class_sep=0.8)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+        #Set up parameters for Grid Search
+        X, y = make_classification(n_samples=args.ns, random_state=42, n_features=args.nf, n_informative=args.nf, n_redundant=0, class_sep=0.8)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
-    # Only the root makes the parameter grid
-    if rank == 0:
-        params = [{'mlp_layer1': [args.v1, args.v2],
-                'mlp_layer2': [args.v1, args.v2],
-                'mlp_layer3': [args.v1, args.v2]}]
+        # Only the root makes the parameter grid
+        if rank == 0:
+            params = [{'mlp_layer1': [args.v1, args.v2],
+                    'mlp_layer2': [args.v1, args.v2],
+                    'mlp_layer3': [args.v1, args.v2]}]
 
-        pg = ParameterGrid(params)
+            pg = ParameterGrid(params)
 
-    if rank == 0:
-        # Perform the grid search with master worker
-        t = MPI.Wtime()
-        master = Master(comm, pg)
-        results = master.distribute_work().get_results()
-        t = MPI.Wtime() - t
-        print(f"\nTime: {t:.02f}s")
+        if rank == 0:
+            # Perform the grid search with master worker
+            t = MPI.Wtime()
+            master = Master(comm, pg)
+            results = master.distribute_work().get_results()
+            t = MPI.Wtime() - t
+            print(f"\nTime: {t:.02f}s")
 
-        # Print and Save Results
-        with open("mpi_time.bin", "wb") as f:
-            f.write(struct.pack('f', t))
+            # Print and Save Results
+            with open("mpi_time.bin", "wb") as f:
+                f.write(struct.pack('f', t))
 
-        print("\n(l1, l2, l3): score\n---------------------")
+            print("\n(l1, l2, l3): score\n---------------------")
 
-        for r in results:
-            print(f"({r.l1}, {r.l2}, {r.l3}): {r.score:.4f}")
+            for r in results:
+                print(f"({r.l1}, {r.l2}, {r.l3}): {r.score:.4f}")
 
-        print("\n===================================\n")
+            print("\n===================================\n")
 
-        sys.stdout.flush()
+            sys.stdout.flush()
 
-        master.kill_workers()
-            
+            master.kill_workers()
+                
+        else:
+            Worker(comm).work()
     else:
-        Worker(comm).work()
+        print("\n-> The script requires at least 2 processes\n")
