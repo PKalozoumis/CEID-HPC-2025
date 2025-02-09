@@ -1,19 +1,10 @@
 .vscode
-ask1a
-ask1b
-ask1c
-ask1d
-ask1d zlib.c
-ask1d_zstd.c
+*.o
+*.png
+*.xlsx
 io*
 *btr
 *.bin
 myenv/
-askisi_2/weno5/bench_avx
-askisi_2/weno5/bench
-askisi_2/weno5/bench_simd
-askisi_2/cuda/cuda
-cpu_calculations.o
-gpu_omp.o
-gpu_omp
 *Zone.Identifier
+*.npz

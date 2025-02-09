@@ -1,5 +1,3 @@
 mytests
-*.npz
-*.png
 load.py
-*.xlsx
+cuda

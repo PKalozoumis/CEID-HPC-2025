@@ -26,7 +26,7 @@ double cpu_calculation(float *A, float *B, float *C, float *D, int N, float* E, 
 }
 //========================================================================================================
 
-void cpu_test(float *A, float *B, float *C, float *D, int N, float* E, float* F){
+static void cpu_test(float *A, float *B, float *C, float *D, int N, float* E, float* F){
     
     #pragma omp parallel for collapse(2)
     for (int i = 0; i < N; i++)
@@ -87,7 +87,7 @@ double matrix_comparison(float* cpuE, float* cpuF, float* gpuE, float* gpuF, int
 
 //========================================================================================================
 
-void initialize_matrix_(float** matrix, int N)
+static void initialize_matrix_(float** matrix, int N)
 {
     srand(time(NULL) + 1000 * omp_get_thread_num());
     // printf("%d\n", omp_get_thread_num());

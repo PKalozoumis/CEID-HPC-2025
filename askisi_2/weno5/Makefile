@@ -1,16 +1,21 @@
-all: bench bench_simd bench_avx
+all: bench
 
-bench: bench.c weno.h
-	gcc -O3 -fopt-info-vec -o bench bench.c -lm
+bench: bench.o weno_simd.o weno_avx.o
+	gcc -o bench bench.o weno_simd.o weno_avx.o -lm
 
-bench_simd: bench_simd.c weno_simd.h
-	gcc -O1 -fopenmp -fopt-info-vec -o bench_simd bench_simd.c -lm
+bench.o: bench.c weno.h
+	gcc -O2 -fopt-info-vec -o bench.o -c bench.c
+	@echo
 
-bench_avx: bench_avx.c weno_avx.h
-	gcc -O1 -mavx512vl -fopt-info-vec -o bench_avx bench_avx.c -lm
+weno_simd.o: weno_simd.c
+	gcc -O1 -fopenmp -fopt-info-vec -o weno_simd.o -c weno_simd.c
+	@echo
+
+weno_avx.o: weno_avx.c
+	gcc -O1 -mavx512vl -fopt-info-vec -o weno_avx.o -c weno_avx.c
 
 clean:
-	rm -f bench_simd
-	rm -f bench_avx
-	rm -f bench
+	@rm -f bench
+	@rm -f bench.o
+	@rm -f weno_simd.o
 

@@ -25,11 +25,15 @@ static inline float weno_minus_core(const float a, const float b, const float c,
 					 omega2*((float)(1./3.)*c  + (float)(5./6.)*d - (float)(1./6.)*e);
 }
 
-void weno_minus_reference(const float * const a, const float * const b, const float * const c,
-			  const float * const d, const float * const e, float * const out,
-			  const int NENTRIES)
+#pragma GCC push_options
+#pragma GCC optimize ("O2", "-ftree-vectorize")
+
+void weno_minus_reference(
+	const float* restrict const a, const float* restrict const b, const float* restrict const c,
+	const float* restrict const d, const float* restrict const e, float* restrict const out, const int NENTRIES)
 {
-//#pragma omp for
-		for (int i=0; i<NENTRIES; ++i)
-			out[i] = weno_minus_core(a[i], b[i], c[i], d[i], e[i]);
+	for (int i=0; i<NENTRIES; ++i)
+		out[i] = weno_minus_core(a[i], b[i], c[i], d[i], e[i]);
 }
+
+#pragma GCC pop_options

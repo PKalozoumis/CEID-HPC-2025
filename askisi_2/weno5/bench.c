@@ -11,6 +11,12 @@
 #endif
 
 #include "weno.h"
+#include "weno_simd.h"
+#include "weno_avx.h"
+
+typedef enum {SIMD, AVX, BOTH} MODE;
+
+//================================================================================================================
 
 float *myalloc(const int NENTRIES, const int verbose)
 {
@@ -39,12 +45,16 @@ float *myalloc(const int NENTRIES, const int verbose)
 	return tmp;
 }
 
+//================================================================================================================
+
 double get_wtime()
 {
 	struct timeval t;
 	gettimeofday(&t, NULL);
 	return t.tv_sec + t.tv_usec * 1e-6;
 }
+
+//================================================================================================================
 
 void check_error(const double tol, float ref[], float val[], const int N)
 {
@@ -62,7 +72,7 @@ void check_error(const double tol, float ref[], float val[], const int N)
 			printf("+%1.1e,", relerr);
 
 		if (fabs(relerr) >= tol && fabs(err) >= tol)
-			printf("\n%d: %e %e -> %e %e\n", i, ref[i], val[i], err, relerr);
+			printf("\nPosition %d: Ref: %e Val: %e -> Err: %e Relerr: %e\n", i, ref[i], val[i], err, relerr);
 
 		assert(fabs(relerr) < tol || fabs(err) < tol);
 	}
@@ -71,12 +81,18 @@ void check_error(const double tol, float ref[], float val[], const int N)
 		printf("\t");
 }
 
-void benchmark(int argc, char *argv[], const int NENTRIES_, const int NTIMES, const int verbose, char *benchmark_name)
+//================================================================================================================
+
+typedef const float* const cptrc;
+void (*implementation[2])(cptrc, cptrc, cptrc, cptrc, cptrc, float* const, const int) = {weno_minus_simd, weno_minus_avx};
+
+//Each benchmarks is performed for a specific NENTRIES
+//We test all implementations
+void benchmark(const int NENTRIES_, const int NTIMES, const int verbose, char *benchmark_name)
 {
 	const int NENTRIES = 4 * (NENTRIES_ / 4);
 
-	double t = get_wtime();
-
+	printf("*************** BENCHMARK **************************\n");
 	printf("nentries set to %e\n", (float)NENTRIES);
 
 	float *const a = myalloc(NENTRIES, verbose);
@@ -85,18 +101,38 @@ void benchmark(int argc, char *argv[], const int NENTRIES_, const int NTIMES, co
 	float *const d = myalloc(NENTRIES, verbose);
 	float *const e = myalloc(NENTRIES, verbose);
 	float *const f = myalloc(NENTRIES, verbose);
-	float *const gold = myalloc(NENTRIES, verbose);
-	float *const result = myalloc(NENTRIES, verbose);
+	float *const gold = myalloc(NENTRIES, verbose); //The reference implementation, for error checking
+	float *const result = myalloc(NENTRIES, verbose); //Result of our own implementation
 
-	weno_minus_reference(a, b, c, d, e, gold, NENTRIES);
-	weno_minus_reference(a, b, c, d, e, result, NENTRIES);
+	double times[3] = {0.0, 0.0, 0.0};
 
-	printf("Time: %lf\n", get_wtime() - t);
+	//For each implementation...
+	for (int i = 0; i < 1; i++)
+	{
+		//Run the implementation many times
+		for (int j = 0; j < 8; j++)
+		{
+			double t = get_wtime();
+			weno_minus_reference(a, b, c, d, e, gold, NENTRIES);
+			t = get_wtime() - t;
+			times[0] += t;
 
-	const double tol = 1e-5;
-	printf("minus: verifying accuracy with tolerance %.5e...", tol);
-	check_error(tol, gold, result, NENTRIES);
-	printf("passed!\n");
+			//printf("Testing implementation: %s\n", i == 0 ? "weno_simd" : "weno_avx");
+			t = get_wtime();
+			implementation[1](a, b, c, d, e, result, NENTRIES);
+			t = get_wtime() - t;
+			times[i+1] += t;
+		}
+
+		const double tol = 1e-5;
+		printf("minus: verifying accuracy with tolerance %.5e...", tol);
+		check_error(tol, gold, result, NENTRIES);
+		printf("passed!\n\n");
+	}
+
+	printf("Reference time: %.03lfs\n", times[0]);
+	printf("SIMD time: %.03lfs\n", times[1]);
+	printf("AVX time: %.03lfs\n\n", times[2]);
 
 	free(a);
 	free(b);
@@ -107,18 +143,18 @@ void benchmark(int argc, char *argv[], const int NENTRIES_, const int NTIMES, co
 	free(result);
 }
 
-int main(int argc, char *argv[])
+//================================================================================================================
+
+//The benchmarks that were initially provided
+void existing_benchmark(int argc, char *argv[])
 {
-	printf("Hello, weno benchmark!\n");
 	const int debug = 0;
 
 	if (debug)
 	{
-		benchmark(argc, argv, 4, 1, 1, "debug");
-		return 0;
+		benchmark(4, 1, 1, "debug");
+		return;
 	}
-
-	double t = get_wtime();
 
 	/* performance on cache hits */
 	{
@@ -129,7 +165,7 @@ int main(int argc, char *argv[])
 		for (int i = 0; i < 4; ++i)
 		{
 			printf("*************** PEAK-LIKE BENCHMARK (RUN %d) **************************\n", i);
-			benchmark(argc, argv, nentries, ntimes, 0, "cache");
+			benchmark(nentries, ntimes, 0, "cache");
 		}
 	}
 
@@ -141,11 +177,30 @@ int main(int argc, char *argv[])
 		for (int i = 0; i < 4; ++i)
 		{
 			printf("*************** STREAM-LIKE BENCHMARK (RUN %d) **************************\n", i);
-			benchmark(argc, argv, nentries, 1, 0, "stream");
+			benchmark(nentries, 1, 0, "stream");
 		}
 	}
+}
 
-	printf("\n\nTotal time: %lf\n\n", get_wtime() - t);
+//================================================================================================================
+
+int main(int argc, char *argv[])
+{
+	printf("Hello, weno benchmark!\n\n");
+
+	//Parse implemenation from argument
+
+	double t = get_wtime();
+
+	int N[8] = {5000, 10000, 50000, 100000, 500000, 1e6, 0.5e8, 1e8};
+
+	for (int i = 0; i < 8; i++)
+	{
+		const int ntimes = (int)floor(2. / (1e-7 * N[i]));
+		benchmark(N[i], ntimes, 0, "goofy benchmark");
+	}
+
+	printf("Total time: %.03lfs\n\n", get_wtime() - t);
 
 	return 0;
 }
