@@ -72,23 +72,26 @@ int main(int argc, char **argv)
 
     t = get_wtime();
     
-    #pragma omp target teams distribute parallel for collapse(2) map(to: A[0:N*N], B[0:N*N], C[0:N*N], D[0:N*N]) map(from: E[0:N*N],F[0:N*N])
-    for (int i = 0; i < N; i++)
+    #pragma omp target data map(to: A[0:N*N], B[0:N*N], C[0:N*N], D[0:N*N]) map(from: E[0:N*N], F[0:N*N]) 
     {
-        for (int j = 0; j < N; j++)
+        #pragma omp target teams distribute parallel for collapse(2)
+        for (int i = 0; i < N; i++)
         {
-            float resAC = 0.0f, resBD = 0.0f, resAD = 0.0f, resBC = 0.0f;
-
-            for (int k = 0; k < N; k++)
+            for (int j = 0; j < N; j++)
             {
-                resAC += A[i * N + k] * C[k * N + j];
-                resBD += B[i * N + k] * D[k * N + j];
-                resAD += A[i * N + k] * D[k * N + j];
-                resBC += B[i * N + k] * C[k * N + j];
-            }
+                float resAC = 0.0f, resBD = 0.0f, resAD = 0.0f, resBC = 0.0f;
 
-            E[i*N + j] = resAC - resBD;
-            F[i*N + j] = resAD + resBC; 
+                for (int k = 0; k < N; k++)
+                {
+                    resAC += A[i * N + k] * C[k * N + j];
+                    resBD += B[i * N + k] * D[k * N + j];
+                    resAD += A[i * N + k] * D[k * N + j];
+                    resBC += B[i * N + k] * C[k * N + j];
+                }
+
+                E[i*N + j] = resAC - resBD;
+                F[i*N + j] = resAD + resBC; 
+            }
         }
     }
 
