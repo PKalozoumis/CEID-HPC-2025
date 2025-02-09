@@ -44,6 +44,7 @@ double gpu_time()
 
 //========================================================================================================
 
+// Calculations on GPU with one kernel
 __global__ void single_kernel_calculations(float* A, float* B, float* C, float* D, float* E, float* F, int N)
 {
     int i = blockIdx.y * blockDim.y + threadIdx.y;
@@ -68,12 +69,11 @@ __global__ void single_kernel_calculations(float* A, float* B, float* C, float* 
 
 //========================================================================================================
 
+// Kernel multipling matrices
 __global__ void multiply_matrix(float* R, float* M1, float* M2, int N)
 {
     int i = blockIdx.y * blockDim.y + threadIdx.y;
     int j = blockIdx.x * blockDim.x + threadIdx.x;
-
-    // printf("(%d, %d)\n", i, j);
 
     if (i < N && j < N)
     {
@@ -84,6 +84,7 @@ __global__ void multiply_matrix(float* R, float* M1, float* M2, int N)
 
 //========================================================================================================
 
+// Kernel adding matrices
 __global__ void add_matrix(float* R, float* M1, float* M2, int N)
 {
     int i = blockIdx.y * blockDim.y + threadIdx.y;
@@ -98,6 +99,7 @@ __global__ void add_matrix(float* R, float* M1, float* M2, int N)
 
 //========================================================================================================
 
+// Kernel subtracting matrices
 __global__ void sub_matrix(float *R, float *M1, float *M2, int N)
 {
     int i = blockIdx.y * blockDim.y + threadIdx.y;
@@ -140,7 +142,6 @@ int main(int argc, char **argv)
 
     //Open shared memory from Python driver program
     //===========================================================================
-
     int fd;
     double* shmem = NULL;
     
@@ -171,7 +172,6 @@ int main(int argc, char **argv)
     int blockSize = 16;
     dim3 block(blockSize, blockSize); // 16x16 = 256 threads per block. A multiple of 32, the warp size
     dim3 grid((N + blockSize - 1) / blockSize, (N + blockSize - 1) / blockSize);
-
 
     //Start CPU calculations
     //===========================================================================

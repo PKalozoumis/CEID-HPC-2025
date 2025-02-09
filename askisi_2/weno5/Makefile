@@ -1,7 +1,7 @@
 all: bench
 
-bench: bench.o weno_simd.o weno_avx.o
-	gcc -o bench bench.o weno_simd.o weno_avx.o -lm
+bench: bench.o weno_simd.o weno_avx.o weno_original.o
+	gcc -o bench bench.o weno_simd.o weno_avx.o weno_original.o -lm
 
 bench.o: bench.c weno.h
 	gcc -O2 -fopt-info-vec -o bench.o -c bench.c
@@ -13,6 +13,9 @@ weno_simd.o: weno_simd.c
 
 weno_avx.o: weno_avx.c
 	gcc -O1 -mavx512vl -fopt-info-vec -o weno_avx.o -c weno_avx.c
+
+weno_original.o: weno_original.c
+	gcc -O1 -fopt-info-vec -o weno_original.o -c weno_original.c
 
 clean:
 	@rm -f bench

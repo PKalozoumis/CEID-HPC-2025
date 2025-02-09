@@ -34,7 +34,7 @@ void weno_minus_simd(
 	const float* restrict const a, const float* restrict const b, const float* restrict const c,
 	const float* restrict const d, const float* restrict const e, float* restrict const out, const int NENTRIES)
 {
-	#pragma omp simd aligned(a, b, c, d, e, out : 8)
+	#pragma omp simd 
 	for (int i = 0; i < NENTRIES; ++i)
 		out[i] = weno_minus_core_simd(a[i], b[i], c[i], d[i], e[i]);
 }

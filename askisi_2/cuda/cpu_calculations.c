@@ -6,24 +6,6 @@
 #include <math.h>
 #include <time.h>
 
-
-
-//========================================================================================================
-
-double cpu_calculation(float *A, float *B, float *C, float *D, int N, float* E, float* F)
-{
-    printf("Performing CPU calculations...\n");
-    fflush(stdout);
-    double t = get_wtime();
-    
-    cpu_test(A,B,C,D,N,E,F);
-    
-    t = get_wtime()-t;
-    printf("Total time for CPU calculations: %.03lfs\n\n", t);
-    fflush(stdout);
-
-    return t;
-}
 //========================================================================================================
 
 static void cpu_test(float *A, float *B, float *C, float *D, int N, float* E, float* F){
@@ -47,6 +29,23 @@ static void cpu_test(float *A, float *B, float *C, float *D, int N, float* E, fl
             F[i*N + j] = resAD + resBC; 
         }
     }
+}
+
+//========================================================================================================
+
+double cpu_calculation(float *A, float *B, float *C, float *D, int N, float* E, float* F)
+{
+    printf("Performing CPU calculations...\n");
+    fflush(stdout);
+    double t = get_wtime();
+    
+    cpu_test(A,B,C,D,N,E,F);
+    
+    t = get_wtime()-t;
+    printf("Total time for CPU calculations: %.03lfs\n\n", t);
+    fflush(stdout);
+
+    return t;
 }
 //========================================================================================================
 
@@ -90,7 +89,6 @@ double matrix_comparison(float* cpuE, float* cpuF, float* gpuE, float* gpuF, int
 static void initialize_matrix_(float** matrix, int N)
 {
     srand(time(NULL) + 1000 * omp_get_thread_num());
-    // printf("%d\n", omp_get_thread_num());
 
     if (posix_memalign((void**)matrix, 32, N*N*sizeof(float)) != 0)
         {perror("Could not allocate aligned memory"); exit(EXIT_FAILURE);}
@@ -124,10 +122,9 @@ void print_matrix(float *matrix, int N)
             printf("%.02f", matrix[i * N + j]);
 
             if (j < N - 1)
-            {
                 printf("\t");
-            }
         }
+
         printf("\n");
     }
 
