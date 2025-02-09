@@ -97,7 +97,7 @@ class Master:
 
     #--------------------------------------------------------------------
 
-    #Waits for a workers that currently have received work to finish
+    #Waits for a worker that currently have received work to finish
     #Once someone finishes, we retrieve Result
     #...and we give him more work, if there's work left in the queue
     def get_results(self) -> list[Result]:
