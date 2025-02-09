@@ -6,6 +6,12 @@
 #include <math.h>
 #include <sys/time.h>
 
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <string.h>
+
 #ifndef WENOEPS
 #define WENOEPS 1.e-6
 #endif
@@ -14,11 +20,6 @@
 #include "weno_simd.h"
 #include "weno_avx.h"
 #include "weno_original.h"
-
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 void print_array(float* arr, int N)
 {
@@ -172,18 +173,37 @@ int main(int argc, char *argv[])
 {
 	printf("Hello, weno benchmark!\n\n");
 
-	//Parse implemenation from argument
+	//Open shared memory from Python driver program
+    //===========================================================================
+    int fd;
+    double* shmem = NULL;
+    
+    if (argc == 2) //2nd argument will be the shared memory name
+    {
+        fd = shm_open(argv[1], O_RDWR, 0);
+
+        if (fd == -1)
+            {perror("Could not open shared memory"); exit(1);}
+
+        shmem = (double*)mmap(NULL, 5*4*sizeof(double), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
+        if (close(fd) == -1)
+            {perror("Could not close file descriptor"); exit(1);}
+
+        if (shmem == MAP_FAILED)
+            {perror("mmap failure"); exit(1);}
+    }
+
+	//Start benchmarking
+	//===========================================================================
 
 	double t = get_wtime();
 
-	//int N[8] = {7000, 10000, 50000, 100000, 500000, 1e6, 0.5e8, 1e8};
-	int N[3] = {1e6, 0.5e8, 1e8};
-	//int N[1] = {1e8};
-	//int N[1] = {16};
+	int N[5] = {1e6, 1e7, 1.5e7 ,0.5e8, 1e8};
 
 	double times[] = {0.0, 0.0, 0.0, 0.0};
 
-	for (int i = 0; i < 3; i++)
+	for (int i = 0; i < 5; i++)
 	{
 		float* a;
 		float* b;
@@ -266,6 +286,10 @@ int main(int argc, char *argv[])
         free(f);
 		free(gold);
 		free(result);
+
+		//Copy local times to the shared memory
+		if (shmem != NULL)
+			memcpy((void*)(shmem + i*4), (void*)local_times, 4*sizeof(double));
 	}
 
 	printf("Total Reference time (original): %.03lfs\n", times[0]);
@@ -274,6 +298,12 @@ int main(int argc, char *argv[])
 	printf("Total AVX time: %.03lfs\n\n", times[3]);
 
 	printf("Total time: %.03lfs\n\n", get_wtime() - t);
+
+	if (shmem != NULL)
+    {
+        if (munmap(shmem, sizeof(double)) == -1)
+            {perror("unmap failure"); exit(1);}
+    }
 
 	return 0;
 }

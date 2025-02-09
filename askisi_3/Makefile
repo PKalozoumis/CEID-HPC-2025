@@ -5,8 +5,8 @@ CFLAGS=-fopenmp -Wall -foffload=nvptx-none -fcf-protection=none -fno-stack-prote
 
 all: gpu_omp
 
-cpu_calculations.o: ../askisi_2/cuda/cpu_calculations.c
-	${CC} ${CFLAGS} -fopt-info-vec -c ../askisi_2/cuda/cpu_calculations.c -o cpu_calculations.o
+cpu_calculations.o: cpu_calculations.c
+	${CC} ${CFLAGS} -fopt-info-vec -c cpu_calculations.c -o cpu_calculations.o
 
 #================================================================================
 
