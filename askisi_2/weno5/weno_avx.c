@@ -5,31 +5,6 @@
 #define WENOEPS 1.e-6
 #endif
 
-static inline float weno_minus_core_old(const float a, const float b, const float c, const float d, const float e)
-{
-    const float is0 = a*(a*(float)(4./3.)  - b*(float)(19./3.)  + c*(float)(11./3.)) + b*(b*(float)(25./3.)  - c*(float)(31./3.)) + c*c*(float)(10./3.);
-	const float is1 = b*(b*(float)(4./3.)  - c*(float)(13./3.)  + d*(float)(5./3.))  + c*(c*(float)(13./3.)  - d*(float)(13./3.)) + d*d*(float)(4./3.);
-	const float is2 = c*(c*(float)(10./3.) - d*(float)(31./3.)  + e*(float)(11./3.)) + d*(d*(float)(25./3.)  - e*(float)(19./3.)) + e*e*(float)(4./3.);
-
-	const float is0plus = is0 + (float)WENOEPS;
-	const float is1plus = is1 + (float)WENOEPS;
-	const float is2plus = is2 + (float)WENOEPS;
-
-	const float alpha0 = (float)(0.1)*((float)1/(is0plus*is0plus));
-	const float alpha1 = (float)(0.6)*((float)1/(is1plus*is1plus));
-	const float alpha2 = (float)(0.3)*((float)1/(is2plus*is2plus));
-	const float alphasum = alpha0+alpha1+alpha2;
-	const float inv_alpha = ((float)1)/alphasum;
-
-	const float omega0 = alpha0 * inv_alpha;
-	const float omega1 = alpha1 * inv_alpha;
-	const float omega2 = 1-omega0-omega1;
-
-	return omega0*((float)(1.0/3.)*a - (float)(7./6.)*b + (float)(11./6.)*c) +
-		omega1*(-(float)(1./6.)*b + (float)(5./6.)*c + (float)(1./3.)*d) +
-		omega2*((float)(1./3.)*c  + (float)(5./6.)*d - (float)(1./6.)*e);
-}
-
 static inline float weno_minus_core(const float* restrict const a, const float* restrict const b, const float* restrict const c,
 const float* restrict const d, const float* restrict const e, float* restrict const out, int i)
 {
@@ -118,14 +93,7 @@ const float* restrict const d, const float* restrict const e, float* restrict co
 	);
 
 	__m512 is2_temp2 = _mm512_mul_ps(_mm512_mul_ps(ve, ve), _4_div_3);
-
 	__m512 is2 = _mm512_add_ps(_mm512_add_ps(is2_temp0, is2_temp1), is2_temp2);
-
-    /*        
-    const float is0 = a*(a*(float)(4./3.)  - b*(float)(19./3.)  + c*(float)(11./3.)) + b*(b*(float)(25./3.)  - c*(float)(31./3.)) + c*c*(float)(10./3.);
-	const float is1 = b*(b*(float)(4./3.)  - c*(float)(13./3.)  + d*(float)(5./3.))  + c*(c*(float)(13./3.)  - d*(float)(13./3.)) + d*d*(float)(4./3.);
-	const float is2 = c*(c*(float)(10./3.) - d*(float)(31./3.)  + e*(float)(11./3.)) + d*(d*(float)(25./3.)  - e*(float)(19./3.)) + e*e*(float)(4./3.);
-	*/
 
     //====================================================================================
     
@@ -133,46 +101,20 @@ const float* restrict const d, const float* restrict const e, float* restrict co
     __m512 is1plus = _mm512_add_ps(is1, _mm512_set1_ps((float)WENOEPS));
     __m512 is2plus = _mm512_add_ps(is2, _mm512_set1_ps((float)WENOEPS));
 
-
-    /*
-	const float is0plus = is0 + (float)WENOEPS;
-	const float is1plus = is1 + (float)WENOEPS;
-	const float is2plus = is2 + (float)WENOEPS;
-    */
-    
     //====================================================================================
 
 	__m512 alpha0 = _mm512_mul_ps(_mm512_set1_ps(0.1f), _mm512_div_ps(_1_f, _mm512_mul_ps(is0plus, is0plus)));
-
-    
     __m512 alpha1 = _mm512_mul_ps(_mm512_set1_ps(0.6f),_mm512_div_ps(_1_f, _mm512_mul_ps(is1plus,is1plus)));
-                    
 	__m512 alpha2 = _mm512_mul_ps(_mm512_set1_ps(0.3f), _mm512_div_ps(_1_f, _mm512_mul_ps(is2plus, is2plus)));
-
-	/*
-	const float alpha0 = (float)(0.1)*((float)1/(is0plus*is0plus));
-	const float alpha1 = (float)(0.6)*((float)1/(is1plus*is1plus));
-	const float alpha2 = (float)(0.3)*((float)1/(is2plus*is2plus));
-	*/
 	
 	__m512 alphasum = _mm512_add_ps(_mm512_add_ps(alpha0, alpha1), alpha2);
-
 	__m512 inv_alpha = _mm512_div_ps(_1_f, alphasum);
-
-	//const float alphasum = alpha0+alpha1+alpha2;
-	//const float inv_alpha = ((float)1)/alphasum;
 
     //====================================================================================
 
     __m512 omega0 = _mm512_mul_ps(alpha0,inv_alpha);
     __m512 omega1 = _mm512_mul_ps(alpha1,inv_alpha);
     __m512 omega2 = _mm512_sub_ps(_mm512_sub_ps(_mm512_set1_ps(1),omega0),omega1);
-    
-    /*
-	const float omega0 = alpha0 * inv_alpha;
-	const float omega1 = alpha1 * inv_alpha;
-	const float omega2 = 1-omega0-omega1;
-    */
 
     //====================================================================================
 
@@ -184,14 +126,11 @@ const float* restrict const d, const float* restrict const e, float* restrict co
 	);
 
     __m512 omega1_temp = _mm512_mul_ps(omega1,
-                            _mm512_add_ps(
-                                _mm512_sub_ps(
-                                    _mm512_mul_ps(vc, _5_div_6),
-                                    _mm512_mul_ps(vb, _1_div_6)
-                                ),
-                            _mm512_mul_ps(vd, _1_div_3)
-                            )
-                        );
+		_mm512_add_ps(
+			_mm512_sub_ps(_mm512_mul_ps(vc, _5_div_6), _mm512_mul_ps(vb, _1_div_6)),
+			_mm512_mul_ps(vd, _1_div_3)
+		)
+	);
 
 
 	__m512 omega2_temp = _mm512_mul_ps(omega2,

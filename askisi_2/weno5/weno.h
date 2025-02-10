@@ -26,7 +26,7 @@ static inline float weno_minus_core(const float a, const float b, const float c,
 }
 
 #pragma GCC push_options
-#pragma GCC optimize ("O2", "-ftree-vectorize")
+#pragma GCC optimize ("-ftree-vectorize")
 
 void weno_minus_reference(
 	const float* restrict const a, const float* restrict const b, const float* restrict const c,

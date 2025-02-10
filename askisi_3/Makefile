@@ -1,5 +1,6 @@
 CC=gcc
 CFLAGS=-fopenmp -Wall -foffload=nvptx-none -fcf-protection=none -fno-stack-protector -O3
+#CFLAGS=-fopenmp -Wall -fcf-protection=none
 
 .PHONY: clean
 

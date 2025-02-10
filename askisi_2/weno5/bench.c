@@ -98,10 +98,8 @@ void check_error(const double tol, float ref[], float val[], const int N)
 
 //================================================================================================================
 
-void allocate(int NENTRIES_, float** a, float** b, float** c, float** d, float** e, float** f, float** gold, float** result)
+void allocate(int NENTRIES, float** a, float** b, float** c, float** d, float** e, float** f, float** gold, float** result)
 {
-	const int NENTRIES = 4 * (NENTRIES_ / 4);
-
 	*a = myalloc(NENTRIES, 0);
 	*b = myalloc(NENTRIES, 0);
 	*c = myalloc(NENTRIES, 0);
@@ -117,10 +115,8 @@ void (*implementation[])(cptrc, cptrc, cptrc, cptrc, cptrc, float* const, const 
 
 //Each benchmarks is performed for a specific NENTRIES
 //We test all implementations
-double benchmark(const int NENTRIES_, float** data, float* out, const int verbose, int impl)
+double benchmark(const int NENTRIES, float** data, float* out, const int verbose, int impl)
 {
-	const int NENTRIES = 4 * (NENTRIES_ / 4);
-
 	double t = get_wtime();
 	implementation[impl](data[0], data[1], data[2], data[3], data[4], out, NENTRIES);
 	t = get_wtime() - t;
@@ -199,11 +195,10 @@ int main(int argc, char *argv[])
 
 	double t = get_wtime();
 
-	int N[5] = {1e6, 1e7, 1.5e7 ,0.5e8, 1e8};
-
+	int N[] = {1e6, 1e7, 1.5e7 ,0.5e8, 1e8};
 	double times[] = {0.0, 0.0, 0.0, 0.0};
 
-	for (int i = 0; i < 5; i++)
+	for (int i = 0; i < sizeof(N)/sizeof(int); i++)
 	{
 		float* a;
 		float* b;
@@ -214,60 +209,63 @@ int main(int argc, char *argv[])
 		float* gold;
 		float* result;
 
-		allocate(N[i], &a, &b, &c, &d, &e, &f, &gold, &result);
+		const int NENTRIES = 16 * (N[i] / 16);
+		printf("Entires: %d After rounding down: %d\n\n", N[i], NENTRIES);
+
+		allocate(NENTRIES, &a, &b, &c, &d, &e, &f, &gold, &result);
 		float* data[8] = {a, b, c, d, e, f};
 
 		double local_times[] = {0.0, 0.0, 0.0, 0.0};
 
         //printf("*************** BENCHMARK **************************\n");
-	    printf("-> Running Reference (original) with NENTRIES = %e\n",(float)N[i]);
+	    printf("-> Running Reference (original) with NENTRIES = %e\n",(float)NENTRIES);
 
 		//Run original reference implementation
 		//---------------------------------------------------------------------------------
 		for (int j = 0; j < 8; j++)
-			local_times[0] += benchmark(N[i], data, gold, 0, 0);
+			local_times[0] += benchmark(NENTRIES, data, gold, 0, 0);
 
 		times[0] += local_times[0];
  
 
         //printf("*************** BENCHMARK **************************\n");
-	    printf("-> Running Reference (automatic vectorization) with NENTRIES = %e\n",(float)N[i]);
+	    printf("-> Running Reference (automatic vectorization) with NENTRIES = %e\n",(float)NENTRIES);
 		//Run reference implementation with automatic vectorization
 		//---------------------------------------------------------------------------------
 		for (int j = 0; j < 8; j++)
-			local_times[1] += benchmark(N[i], data, gold, 0, 1);
+			local_times[1] += benchmark(NENTRIES, data, gold, 0, 1);
 
 		times[1] += local_times[1];
 
 
         //printf("*************** BENCHMARK **************************\n");
-	    printf("-> Running OpenMP SIMD with NENTRIES = %e\n",(float)N[i]);
+	    printf("-> Running OpenMP SIMD with NENTRIES = %e\n",(float)NENTRIES);
 
 		//Run OpenMP SIMD
 		//---------------------------------------------------------------------------------
 		for (int j = 0; j < 8; j++)
-			local_times[2] += benchmark(N[i], data, result, 0, 2);
+			local_times[2] += benchmark(NENTRIES, data, result, 0, 2);
 
 		times[2] += local_times[2];
 
 		double tol = 1e-5;
 		printf("minus: verifying OpenMP SIMD accuracy with tolerance %.5e...", tol);
-		check_error(tol, gold, result, N[i]);
+		check_error(tol, gold, result, NENTRIES);
 		printf("passed!\n\n");
 
         //printf("*************** BENCHMARK **************************\n");
-	    printf("-> Running AVX with NENTRIES = %e\n",(float)N[i]);
+	    printf("-> Running AVX with NENTRIES = %e\n",(float)NENTRIES);
 
 		//Run AVX
 		//---------------------------------------------------------------------------------
 		for (int j = 0; j < 8; j++)
-			local_times[3] += benchmark(N[i], data, result, 0, 3);
+			local_times[3] += benchmark(NENTRIES, data, result, 0, 3);
 
 		times[3] += local_times[3];
 
 		tol = 1;
 		printf("minus: verifying AVX accuracy with tolerance %.5e...", tol);
-		check_error(tol, gold, result, N[i]);
+		check_error(tol, gold, result, NENTRIES);
 		printf("passed!\n\n");
 
 		//---------------------------------------------------------------------------------
@@ -276,7 +274,7 @@ int main(int argc, char *argv[])
 		printf("Reference time (automatic vectorization): %.03lfs\n", local_times[1]);
 		printf("SIMD time: %.03lfs\n", local_times[2]);
 		printf("AVX time: %.03lfs\n", local_times[3]);
-        printf("===============================================================\n\n");
+        printf("\n===============================================================\n\n");
 
 		free(a);
 		free(b);
