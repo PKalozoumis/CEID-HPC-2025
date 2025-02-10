@@ -8,7 +8,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import math
 
-samples = 1500
+samples = 20000
 features = 10
 v1 = 16
 v2 = 32
@@ -61,7 +61,6 @@ fig, ax = plt.subplots()
 ax.set_prop_cycle(color=colors[1:])
 ax.plot(processes, times[:,1:], linewidth=2)
 ax.set_xticks(range(processes[0], processes[-1]+1))
-ax.set_yticks(np.arange(0, math.ceil(np.max(times))+1, 2))
 fig.suptitle("Speedup For Various Implementations")
 ax.set_xlabel("N", fontsize=13)
 ax.set_ylabel("Speedup", fontsize=13)

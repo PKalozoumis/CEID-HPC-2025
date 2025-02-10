@@ -12,7 +12,6 @@ times = np.zeros((len(N), 4))
 shm = shared_memory.SharedMemory(create=True, size=len(N)*4*8)
 ptr = memoryview(shm.buf)
 
-
 try:
     subprocess.run(["./bench", shm.name])
     

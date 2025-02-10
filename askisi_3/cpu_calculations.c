@@ -10,7 +10,6 @@
 
 static void cpu_test(float *A, float *B, float *C, float *D, int N, float* E, float* F){
     
-    #pragma omp parallel for collapse(2)
     for (int i = 0; i < N; i++)
     {
         for (int j = 0; j < N; j++)

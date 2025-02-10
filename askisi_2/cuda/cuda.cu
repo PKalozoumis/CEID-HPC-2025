@@ -131,9 +131,9 @@ int main(int argc, char **argv)
     {
         mode = atoi(argv[2]);
 
-        if (mode > 7)
+        if ((mode > 7) || (mode < 1))
         {
-            printf("Invalid mode. Must be in 0-7\n");
+            printf("Invalid mode. Must be in 1-7\n");
             exit(1);
         }
     }
@@ -220,7 +220,8 @@ int main(int argc, char **argv)
     float* E = (float *)malloc(arraySize);
     float* F = (float *)malloc(arraySize);
 
-    printf("Performing GPU calculations...\n\n");
+    if ((mode & MODE_GPU_MULTIPLE) || (mode & MODE_GPU_SINGLE))
+        printf("Performing GPU calculations...\n\n");
 
     //Start multiple kernel calculations
     if (mode & MODE_GPU_MULTIPLE)

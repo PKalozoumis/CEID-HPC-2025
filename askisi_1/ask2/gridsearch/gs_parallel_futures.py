@@ -33,17 +33,14 @@ def test_params(p: dict[str, any]) -> Result:
 # ============================================================================================
 
 if __name__ == "__main__":
-
-    WORKTAG = 0
-    DIETAG = 1
    
     size = comm.Get_size()
     rank = comm.Get_rank()
 
     # Get the values from the arguments
     parser = argparse.ArgumentParser(description='Grid search parallelization', allow_abbrev=False)
-    parser.add_argument("-ns", action="store", type=int,default=10000, help="Number of samples")
-    parser.add_argument("-nf", action="store", type=int,default=2, help="Number of features")
+    parser.add_argument("-ns", action="store", type=int,default=20000, help="Number of samples")
+    parser.add_argument("-nf", action="store", type=int,default=10, help="Number of features")
     parser.add_argument("-v1", action="store", type=int,default=16, help="Small value for neurons")
     parser.add_argument("-v2", action="store", type=int,default=32, help="Large value for neurons")
     args = parser.parse_args()

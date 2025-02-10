@@ -12,7 +12,7 @@ weno_simd.o: weno_simd.c
 	@echo
 
 weno_avx.o: weno_avx.c
-	gcc -O1 -fopt-info-vec -o weno_avx.o -c weno_avx.c
+	gcc -O1 -mavx512vl -fopt-info-vec -o weno_avx.o -c weno_avx.c
 
 weno_original.o: weno_original.c
 	gcc -O1 -fopt-info-vec -o weno_original.o -c weno_original.c
