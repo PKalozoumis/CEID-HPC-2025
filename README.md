@@ -1,6 +1,6 @@
-High Performance Systems Programming
+# High Performance Systems Programming
 
-This repository contains the 3 lab exercises for the course "High Performance Systems Programming"
+This project contains the 3 lab exercises for the course "High Performance Systems Programming"
 focused on parallel and high-performance computing using MPI, OpenMP, GPU offloading, and Python multiprocessing.
 
 - OpenMP
